@@ -137,13 +137,14 @@ export class PerfexCRMClient {
     if (params?.offset) queryParams.append("offset", params.offset.toString());
     if (params?.search) queryParams.append("search", params.search);
 
-    const endpoint = `/api/customers${queryParams.toString() ? `?${queryParams}` : ""}`;
+    // Remove /api prefix since baseURL already includes it
+    const endpoint = `/customers${queryParams.toString() ? `?${queryParams}` : ""}`;
     return this.get<PerfexCRMCustomer[]>(endpoint);
   }
 
   // Get customer by ID
   async getCustomer(id: string): Promise<PerfexCRMCustomer> {
-    return this.get<PerfexCRMCustomer>(`/api/customers/${id}`);
+    return this.get<PerfexCRMCustomer>(`/customers/${id}`);
   }
 
   // Get invoices
@@ -158,13 +159,13 @@ export class PerfexCRMClient {
     if (params?.status !== undefined)
       queryParams.append("status", params.status.toString());
 
-    const endpoint = `/api/invoices${queryParams.toString() ? `?${queryParams}` : ""}`;
+    const endpoint = `/invoices${queryParams.toString() ? `?${queryParams}` : ""}`;
     return this.get<PerfexCRMInvoice[]>(endpoint);
   }
 
   // Get invoice by ID
   async getInvoice(id: string): Promise<PerfexCRMInvoice> {
-    return this.get<PerfexCRMInvoice>(`/api/invoices/${id}`);
+    return this.get<PerfexCRMInvoice>(`/invoices/${id}`);
   }
 
   // Get leads
@@ -179,19 +180,19 @@ export class PerfexCRMClient {
     if (params?.status !== undefined)
       queryParams.append("status", params.status.toString());
 
-    const endpoint = `/api/leads${queryParams.toString() ? `?${queryParams}` : ""}`;
+    const endpoint = `/leads${queryParams.toString() ? `?${queryParams}` : ""}`;
     return this.get<PerfexCRMLead[]>(endpoint);
   }
 
   // Get lead by ID
   async getLead(id: string): Promise<PerfexCRMLead> {
-    return this.get<PerfexCRMLead>(`/api/leads/${id}`);
+    return this.get<PerfexCRMLead>(`/leads/${id}`);
   }
 
   // Get dashboard statistics (custom endpoint if available)
   async getStatistics(): Promise<Record<string, unknown>> {
     try {
-      return await this.get<Record<string, unknown>>("/api/dashboard/statistics");
+      return await this.get<Record<string, unknown>>("/dashboard/statistics");
     } catch (error) {
       // If statistics endpoint doesn't exist, calculate from other endpoints
       const [customers, invoices, leads] = await Promise.all([

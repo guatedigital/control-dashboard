@@ -99,11 +99,29 @@ export class UchatClient {
   // Generic GET request with retry logic
   private async get<T>(endpoint: string): Promise<T> {
     return this.retryRequest(async () => {
+      const fullUrl = `${this.config.apiUrl}${endpoint}`;
+      console.log(`[Uchat] Requesting: ${fullUrl}`);
+      
       const response = await this.client.get<UchatResponse<T>>(endpoint);
-      if (response.data.success === false) {
-        throw new Error(response.data.message || "Request failed");
+      
+      console.log(`[Uchat] Response status: ${response.status}`);
+      console.log(`[Uchat] Response data:`, JSON.stringify(response.data).substring(0, 500));
+      
+      // Handle different response formats
+      if (response.data && typeof response.data === 'object') {
+        // If response has success property
+        if ('success' in response.data && response.data.success === false) {
+          throw new Error((response.data as { message?: string }).message || "Request failed");
+        }
+        // If response has data property
+        if ('data' in response.data) {
+          return (response.data as { data: T }).data;
+        }
+        // If response is directly the data
+        return response.data as T;
       }
-      return response.data.data as T;
+      
+      return response.data as T;
     });
   }
 
@@ -118,13 +136,14 @@ export class UchatClient {
     if (params?.offset) queryParams.append("offset", params.offset.toString());
     if (params?.status) queryParams.append("status", params.status);
 
-    const endpoint = `/api/chats${queryParams.toString() ? `?${queryParams}` : ""}`;
+    // Remove /api prefix since baseURL already includes it (if needed)
+    const endpoint = `/chats${queryParams.toString() ? `?${queryParams}` : ""}`;
     return this.get<UchatChat[]>(endpoint);
   }
 
   // Get chat by ID
   async getChat(id: string): Promise<UchatChat> {
-    return this.get<UchatChat>(`/api/chats/${id}`);
+    return this.get<UchatChat>(`/chats/${id}`);
   }
 
   // Get messages for a chat
@@ -136,7 +155,7 @@ export class UchatClient {
     if (params?.limit) queryParams.append("limit", params.limit.toString());
     if (params?.offset) queryParams.append("offset", params.offset.toString());
 
-    const endpoint = `/api/chats/${chatId}/messages${
+    const endpoint = `/chats/${chatId}/messages${
       queryParams.toString() ? `?${queryParams}` : ""
     }`;
     return this.get<UchatMessage[]>(endpoint);
@@ -151,7 +170,7 @@ export class UchatClient {
     if (params?.start_date) queryParams.append("start_date", params.start_date);
     if (params?.end_date) queryParams.append("end_date", params.end_date);
 
-    const endpoint = `/api/analytics${queryParams.toString() ? `?${queryParams}` : ""}`;
+    const endpoint = `/analytics${queryParams.toString() ? `?${queryParams}` : ""}`;
     return this.get<UchatAnalytics>(endpoint);
   }
 
