@@ -7,6 +7,9 @@ const perfexcrmConfig = {
 };
 
 export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const endpoint = searchParams.get("endpoint") || "statistics";
+  
   try {
     if (!perfexcrmConfig.apiUrl || !perfexcrmConfig.apiKey) {
       return NextResponse.json(
@@ -16,8 +19,6 @@ export async function GET(request: NextRequest) {
     }
 
     const client = new PerfexCRMClient(perfexcrmConfig);
-    const searchParams = request.nextUrl.searchParams;
-    const endpoint = searchParams.get("endpoint") || "statistics";
     const limit = searchParams.get("limit")
       ? parseInt(searchParams.get("limit")!)
       : undefined;
