@@ -15,10 +15,13 @@ export class PerfexCRMClient {
 
   constructor(config: PerfexCRMConfig) {
     this.config = config;
+    // PerfexCRM typically uses X-API-KEY header instead of Authorization Bearer
     this.client = axios.create({
       baseURL: config.apiUrl,
       headers: {
         "Content-Type": "application/json",
+        "X-API-KEY": config.apiKey,
+        // Also try Authorization header as fallback
         Authorization: `Bearer ${config.apiKey}`,
       },
       timeout: 30000,
@@ -99,11 +102,29 @@ export class PerfexCRMClient {
   // Generic GET request with retry logic
   private async get<T>(endpoint: string): Promise<T> {
     return this.retryRequest(async () => {
+      const fullUrl = `${this.config.apiUrl}${endpoint}`;
+      console.log(`[PerfexCRM] Requesting: ${fullUrl}`);
+      
       const response = await this.client.get<PerfexCRMResponse<T>>(endpoint);
-      if (response.data.success === false) {
-        throw new Error(response.data.message || "Request failed");
+      
+      console.log(`[PerfexCRM] Response status: ${response.status}`);
+      console.log(`[PerfexCRM] Response data:`, JSON.stringify(response.data).substring(0, 500));
+      
+      // Handle different response formats
+      if (response.data && typeof response.data === 'object') {
+        // If response has success property
+        if ('success' in response.data && response.data.success === false) {
+          throw new Error((response.data as { message?: string }).message || "Request failed");
+        }
+        // If response has data property
+        if ('data' in response.data) {
+          return (response.data as { data: T }).data;
+        }
+        // If response is directly the data
+        return response.data as T;
       }
-      return response.data.data as T;
+      
+      return response.data as T;
     });
   }
 
