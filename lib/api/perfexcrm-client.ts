@@ -15,14 +15,12 @@ export class PerfexCRMClient {
 
   constructor(config: PerfexCRMConfig) {
     this.config = config;
-    // PerfexCRM typically uses X-API-KEY header instead of Authorization Bearer
+    // PerfexCRM uses X-API-KEY header for authentication
     this.client = axios.create({
       baseURL: config.apiUrl,
       headers: {
         "Content-Type": "application/json",
         "X-API-KEY": config.apiKey,
-        // Also try Authorization header as fallback
-        Authorization: `Bearer ${config.apiKey}`,
       },
       timeout: 30000,
     });
