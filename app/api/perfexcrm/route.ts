@@ -53,14 +53,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("PerfexCRM API error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "Unknown error occurred",
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    const errorDetails = {
+      success: false,
+      error: errorMessage,
+      endpoint,
+      config: {
+        apiUrl: perfexcrmConfig.apiUrl ? "configured" : "missing",
+        apiKey: perfexcrmConfig.apiKey ? "configured" : "missing",
       },
-      { status: 500 }
-    );
+    };
+    return NextResponse.json(errorDetails, { status: 500 });
   }
 }
 

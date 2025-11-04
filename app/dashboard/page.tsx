@@ -16,6 +16,17 @@ async function fetchDashboardData() {
   const perfexcrm = await perfexcrmRes.json();
   const uchat = await uchatRes.json();
 
+  // Check for errors
+  if (!perfexcrmRes.ok || !perfexcrm.success) {
+    console.error("PerfexCRM error:", perfexcrm);
+    throw new Error(perfexcrm.error || "Failed to fetch PerfexCRM data");
+  }
+
+  if (!uchatRes.ok || !uchat.success) {
+    console.error("Uchat error:", uchat);
+    throw new Error(uchat.error || "Failed to fetch Uchat data");
+  }
+
   return {
     perfexcrm: perfexcrm.data || {},
     uchat: uchat.data || {},
