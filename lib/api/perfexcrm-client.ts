@@ -48,12 +48,27 @@ export class PerfexCRMClient {
     if (error.response) {
       // Server responded with error status
       const status = error.response.status;
+      const responseData = error.response.data;
+      const requestUrl = error.config?.url || "unknown";
+      const requestHeaders = error.config?.headers || {};
+      
+      console.error("[PerfexCRM Error Details]", {
+        status,
+        statusText: error.response.statusText,
+        url: `${this.config.apiUrl}${requestUrl}`,
+        headers: Object.keys(requestHeaders),
+        responseData: typeof responseData === 'string' ? responseData.substring(0, 500) : responseData,
+      });
+
       const message =
-        (error.response.data as { message?: string })?.message ||
+        (responseData as { message?: string })?.message ||
+        (typeof responseData === 'string' ? responseData.substring(0, 200) : 'Unknown error') ||
         error.message;
 
       if (status === 401) {
         throw new Error("PerfexCRM: Authentication failed. Please check your API key.");
+      } else if (status === 403) {
+        throw new Error(`PerfexCRM: Access forbidden (403). This usually means:\n1. API key is invalid or expired\n2. API key doesn't have required permissions\n3. IP restrictions are blocking the request\n4. Wrong authentication method\n\nURL: ${this.config.apiUrl}${requestUrl}\nResponse: ${message}`);
       } else if (status === 429) {
         throw new Error("PerfexCRM: Rate limit exceeded. Please try again later.");
       } else if (status >= 500) {
