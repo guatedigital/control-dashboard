@@ -10,18 +10,19 @@ import type {
 export class PerfexCRMClient {
   private client: AxiosInstance;
   private config: PerfexCRMConfig;
+  private baseURL: string; // Store normalized baseURL
   private maxRetries: number = 3;
   private retryDelay: number = 1000;
 
   constructor(config: PerfexCRMConfig) {
     this.config = config;
     // Normalize baseURL - remove trailing /api if present to avoid double /api/api
-    const baseURL = config.apiUrl.replace(/\/api\/?$/, ''); // Remove trailing /api
+    this.baseURL = config.apiUrl.replace(/\/api\/?$/, ''); // Remove trailing /api
     
     // PerfexCRM uses X-API-KEY header for authentication
     // Add browser-like headers to bypass Cloudflare protection
     this.client = axios.create({
-      baseURL: baseURL,
+      baseURL: this.baseURL,
       headers: {
         "Content-Type": "application/json",
         "X-API-KEY": config.apiKey,
@@ -29,8 +30,8 @@ export class PerfexCRMClient {
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
-        "Referer": baseURL,
-        "Origin": baseURL,
+        "Referer": this.baseURL,
+        "Origin": this.baseURL,
       },
       timeout: 30000,
     });
@@ -155,7 +156,7 @@ export class PerfexCRMClient {
   // Generic GET request with retry logic
   private async get<T>(endpoint: string): Promise<T> {
     return this.retryRequest(async () => {
-      const fullUrl = `${this.config.apiUrl}${endpoint}`;
+      const fullUrl = `${this.baseURL}${endpoint}`;
       console.log(`[PerfexCRM] Requesting: ${fullUrl}`);
       
       try {
