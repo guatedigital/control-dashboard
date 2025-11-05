@@ -385,13 +385,19 @@ export class UchatClient {
   }
 
   // Get custom events summary
+  // Note: Requires event_ns parameter (required) and uses range instead of dates
+  // Range options: "yesterday", "last_7_days", "last_week", "last_30_days", "last_month", "last_3_months"
   async getCustomEventsSummary(params?: {
-    start_date?: string;
-    end_date?: string;
+    event_ns: string; // Required: the custom event ns
+    range?: string; // Optional: "yesterday" (default), "last_7_days", "last_week", "last_30_days", "last_month", "last_3_months"
   }): Promise<UchatCustomEventSummary[]> {
+    if (!params?.event_ns) {
+      throw new Error("Uchat: event_ns parameter is required for custom events summary");
+    }
+
     const queryParams = new URLSearchParams();
-    if (params?.start_date) queryParams.append("start_date", params.start_date);
-    if (params?.end_date) queryParams.append("end_date", params.end_date);
+    queryParams.append("event_ns", params.event_ns);
+    if (params?.range) queryParams.append("range", params.range);
 
     const queryString = queryParams.toString() ? `?${queryParams}` : "";
     const endpoint = `/flow/custom-events/summary${queryString}`;
@@ -412,19 +418,24 @@ export class UchatClient {
   }
 
   // Get custom events data (detailed)
+  // Note: Requires event_ns parameter (required) and uses Unix timestamps for dates
   async getCustomEventsData(params?: {
-    limit?: number;
-    offset?: number;
-    event_name?: string;
-    start_date?: string;
-    end_date?: string;
+    event_ns: string; // Required: the custom event ns
+    limit?: number; // Optional: Number of items (1-100)
+    start_time?: number; // Optional: Unix timestamp (between 6 months ago and now)
+    end_time?: number; // Optional: Unix timestamp (between 6 months ago and now)
+    start_id?: number; // Optional: Starting from id
   }): Promise<UchatCustomEventData[]> {
+    if (!params?.event_ns) {
+      throw new Error("Uchat: event_ns parameter is required for custom events data");
+    }
+
     const queryParams = new URLSearchParams();
+    queryParams.append("event_ns", params.event_ns);
     if (params?.limit) queryParams.append("limit", params.limit.toString());
-    if (params?.offset) queryParams.append("offset", params.offset.toString());
-    if (params?.event_name) queryParams.append("event_name", params.event_name);
-    if (params?.start_date) queryParams.append("start_date", params.start_date);
-    if (params?.end_date) queryParams.append("end_date", params.end_date);
+    if (params?.start_time) queryParams.append("start_time", params.start_time.toString());
+    if (params?.end_time) queryParams.append("end_time", params.end_time.toString());
+    if (params?.start_id) queryParams.append("start_id", params.start_id.toString());
 
     const queryString = queryParams.toString() ? `?${queryParams}` : "";
     const endpoint = `/flow/custom-events/data${queryString}`;

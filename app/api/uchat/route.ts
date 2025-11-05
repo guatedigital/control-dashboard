@@ -56,10 +56,11 @@ async function handleGet(request: NextRequest) {
         data = await client.getConversationsData({ limit, offset });
         break;
       case "analytics":
-        const startDate = searchParams.get("start_date") || undefined;
-        const endDate = searchParams.get("end_date") || undefined;
-        data = await client.getAnalytics({ start_date: startDate, end_date: endDate });
-        break;
+        // Analytics endpoint doesn't exist in Uchat API - return error
+        return NextResponse.json(
+          { error: "Analytics endpoint is not available in Uchat API" },
+          { status: 404 }
+        );
       case "statistics":
         data = await client.getStatistics();
         break;
@@ -78,24 +79,43 @@ async function handleGet(request: NextRequest) {
         break;
       case "custom-events-summary":
       case "events-summary":
-        const eventsSummaryStartDate = searchParams.get("start_date") || undefined;
-        const eventsSummaryEndDate = searchParams.get("end_date") || undefined;
+        const eventNs = searchParams.get("event_ns");
+        if (!eventNs) {
+          return NextResponse.json(
+            { error: "event_ns parameter is required for custom events summary" },
+            { status: 400 }
+          );
+        }
+        const range = searchParams.get("range") || undefined;
         data = await client.getCustomEventsSummary({
-          start_date: eventsSummaryStartDate,
-          end_date: eventsSummaryEndDate,
+          event_ns: eventNs,
+          range: range,
         });
         break;
       case "custom-events":
       case "events":
-        const eventName = searchParams.get("event_name") || undefined;
-        const eventsStartDate = searchParams.get("start_date") || undefined;
-        const eventsEndDate = searchParams.get("end_date") || undefined;
+        const eventNsForData = searchParams.get("event_ns");
+        if (!eventNsForData) {
+          return NextResponse.json(
+            { error: "event_ns parameter is required for custom events data" },
+            { status: 400 }
+          );
+        }
+        const startTime = searchParams.get("start_time") 
+          ? parseInt(searchParams.get("start_time")!) 
+          : undefined;
+        const endTime = searchParams.get("end_time") 
+          ? parseInt(searchParams.get("end_time")!) 
+          : undefined;
+        const startId = searchParams.get("start_id") 
+          ? parseInt(searchParams.get("start_id")!) 
+          : undefined;
         data = await client.getCustomEventsData({
+          event_ns: eventNsForData,
           limit,
-          offset,
-          event_name: eventName,
-          start_date: eventsStartDate,
-          end_date: eventsEndDate,
+          start_time: startTime,
+          end_time: endTime,
+          start_id: startId,
         });
         break;
       default:
