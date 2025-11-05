@@ -17,16 +17,33 @@ async function fetchDashboardData() {
 
   try {
     console.log("[Dashboard] Starting API requests...");
+    
+    // Get session token for authenticated API requests
+    const { supabase } = await import("@/lib/supabase/client");
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      throw new Error("Not authenticated. Please log in again.");
+    }
+    
     // Fetch both APIs in parallel, but don't fail if one fails
+    // Use server-side API routes with authentication headers
+    // This keeps API keys secure on the server
     const [perfexcrmRes, uchatRes] = await Promise.allSettled([
       fetch("/api/perfexcrm?endpoint=statistics", {
         signal: controller.signal,
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
       }).catch(err => {
         console.error("[Dashboard] PerfexCRM fetch error:", err);
         throw err;
       }),
       fetch("/api/uchat?endpoint=statistics", {
         signal: controller.signal,
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
       }).catch(err => {
         console.error("[Dashboard] Uchat fetch error:", err);
         throw err;

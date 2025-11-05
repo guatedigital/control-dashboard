@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDataSyncService } from "@/lib/services/data-sync";
+import { verifyAuth } from "@/lib/auth/verify-auth";
 
 export async function POST(request: NextRequest) {
+  // Verify authentication first
+  const authResult = await verifyAuth(request);
+  
+  if (!authResult.authorized) {
+    const status = authResult.error === "Account not authorized" ? 403 : 401;
+    return NextResponse.json(
+      { 
+        success: false,
+        error: authResult.error || "Unauthorized",
+        message: "Authentication required to access this endpoint"
+      },
+      { status }
+    );
+  }
+
   try {
     const body = await request.json();
     const source = body.source || "all"; // 'perfexcrm', 'uchat', or 'all'

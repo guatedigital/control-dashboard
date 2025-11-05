@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PerfexCRMClient } from "@/lib/api/perfexcrm-client";
+import { verifyAuth } from "@/lib/auth/verify-auth";
 
 const perfexcrmConfig = {
   apiUrl: process.env.NEXT_PUBLIC_PERFEXCRM_API_URL || "",
@@ -7,6 +8,21 @@ const perfexcrmConfig = {
 };
 
 export async function GET(request: NextRequest) {
+  // Verify authentication first
+  const authResult = await verifyAuth(request);
+  
+  if (!authResult.authorized) {
+    const status = authResult.error === "Account not authorized" ? 403 : 401;
+    return NextResponse.json(
+      { 
+        success: false,
+        error: authResult.error || "Unauthorized",
+        message: "Authentication required to access this endpoint"
+      },
+      { status }
+    );
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const endpoint = searchParams.get("endpoint") || "statistics";
   
