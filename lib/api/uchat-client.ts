@@ -106,27 +106,45 @@ export class UchatClient {
     return this.retryRequest(async () => {
       const fullUrl = `${this.config.apiUrl}${endpoint}`;
       console.log(`[Uchat] Requesting: ${fullUrl}`);
+      console.log(`[Uchat] Base URL: ${this.config.apiUrl}`);
+      console.log(`[Uchat] Endpoint: ${endpoint}`);
       
-      const response = await this.client.get<UchatResponse<T>>(endpoint);
-      
-      console.log(`[Uchat] Response status: ${response.status}`);
-      console.log(`[Uchat] Response data:`, JSON.stringify(response.data).substring(0, 500));
-      
-      // Handle different response formats
-      if (response.data && typeof response.data === 'object') {
-        // If response has success property
-        if ('success' in response.data && response.data.success === false) {
-          throw new Error((response.data as { message?: string }).message || "Request failed");
+      try {
+        const response = await this.client.get<UchatResponse<T>>(endpoint);
+        
+        console.log(`[Uchat] Response status: ${response.status}`);
+        console.log(`[Uchat] Response data:`, JSON.stringify(response.data).substring(0, 500));
+        
+        // Handle different response formats
+        if (response.data && typeof response.data === 'object') {
+          // If response has success property
+          if ('success' in response.data && response.data.success === false) {
+            throw new Error((response.data as { message?: string }).message || "Request failed");
+          }
+          // If response has data property
+          if ('data' in response.data) {
+            return (response.data as { data: T }).data;
+          }
+          // If response is directly the data
+          return response.data as T;
         }
-        // If response has data property
-        if ('data' in response.data) {
-          return (response.data as { data: T }).data;
-        }
-        // If response is directly the data
+        
         return response.data as T;
+      } catch (error: any) {
+        // Log more details about the error
+        if (error.response) {
+          console.error(`[Uchat] Error response:`, {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            url: error.config?.url || fullUrl,
+            baseURL: error.config?.baseURL,
+            data: typeof error.response.data === 'string' 
+              ? error.response.data.substring(0, 200) 
+              : error.response.data,
+          });
+        }
+        throw error;
       }
-      
-      return response.data as T;
     });
   }
 

@@ -74,10 +74,20 @@ export class PerfexCRMClient {
                                    responseText.includes('Just a moment') || 
                                    responseText.includes('cf-challenge');
 
-      const message =
-        (responseData as { message?: string })?.message ||
-        (typeof responseData === 'string' ? responseData.substring(0, 200) : 'Unknown error') ||
-        error.message;
+      // Extract error message, but truncate HTML responses
+      let message = '';
+      if (isCloudflareChallenge) {
+        message = "Cloudflare is blocking the request. Please check IP restrictions and bot protection settings.";
+      } else {
+        message =
+          (responseData as { message?: string })?.message ||
+          (typeof responseData === 'string' 
+            ? (responseData.includes('<!doctype') || responseData.includes('<html')
+              ? 'Received HTML response instead of JSON'
+              : responseData.substring(0, 200))
+            : 'Unknown error') ||
+          error.message;
+      }
 
       // Create error with status code attached
       const customError = new Error(`PerfexCRM: ${message || `Request failed with status ${status}`}`) as Error & { statusCode?: number; isCloudflareChallenge?: boolean };
@@ -232,14 +242,46 @@ export class PerfexCRMClient {
     if (params?.offset) queryParams.append("offset", params.offset.toString());
     if (params?.search) queryParams.append("search", params.search);
 
-    // Try with /v1/ prefix first, fallback to direct path
-    const endpoint = `/v1/customers${queryParams.toString() ? `?${queryParams}` : ""}`;
-    return this.get<PerfexCRMCustomer[]>(endpoint);
+    const queryString = queryParams.toString() ? `?${queryParams}` : "";
+    
+    // PerfexCRM API typically uses /api/v1/... endpoints
+    // Try different endpoint variations
+    const endpoints = [
+      `/api/v1/customers${queryString}`,  // Standard PerfexCRM format
+      `/v1/customers${queryString}`,      // If baseURL already has /api
+    ];
+
+    // Try first endpoint, fallback to second if it fails
+    let lastError: Error | null = null;
+    for (const endpoint of endpoints) {
+      try {
+        return await this.get<PerfexCRMCustomer[]>(endpoint);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (endpoint !== endpoints[endpoints.length - 1]) {
+          console.log(`[PerfexCRM] Endpoint ${endpoint} failed, trying next...`);
+        }
+      }
+    }
+    
+    throw lastError || new Error("PerfexCRM: All endpoint variations failed");
   }
 
   // Get customer by ID
   async getCustomer(id: string): Promise<PerfexCRMCustomer> {
-    return this.get<PerfexCRMCustomer>(`/v1/customers/${id}`);
+    const endpoints = [`/api/v1/customers/${id}`, `/v1/customers/${id}`];
+    let lastError: Error | null = null;
+    for (const endpoint of endpoints) {
+      try {
+        return await this.get<PerfexCRMCustomer>(endpoint);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (endpoint !== endpoints[endpoints.length - 1]) {
+          continue;
+        }
+      }
+    }
+    throw lastError || new Error("PerfexCRM: Failed to get customer");
   }
 
   // Get invoices
@@ -254,13 +296,41 @@ export class PerfexCRMClient {
     if (params?.status !== undefined)
       queryParams.append("status", params.status.toString());
 
-    const endpoint = `/v1/invoices${queryParams.toString() ? `?${queryParams}` : ""}`;
-    return this.get<PerfexCRMInvoice[]>(endpoint);
+    const queryString = queryParams.toString() ? `?${queryParams}` : "";
+    const endpoints = [
+      `/api/v1/invoices${queryString}`,
+      `/v1/invoices${queryString}`,
+    ];
+
+    let lastError: Error | null = null;
+    for (const endpoint of endpoints) {
+      try {
+        return await this.get<PerfexCRMInvoice[]>(endpoint);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (endpoint !== endpoints[endpoints.length - 1]) {
+          continue;
+        }
+      }
+    }
+    throw lastError || new Error("PerfexCRM: Failed to get invoices");
   }
 
   // Get invoice by ID
   async getInvoice(id: string): Promise<PerfexCRMInvoice> {
-    return this.get<PerfexCRMInvoice>(`/v1/invoices/${id}`);
+    const endpoints = [`/api/v1/invoices/${id}`, `/v1/invoices/${id}`];
+    let lastError: Error | null = null;
+    for (const endpoint of endpoints) {
+      try {
+        return await this.get<PerfexCRMInvoice>(endpoint);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (endpoint !== endpoints[endpoints.length - 1]) {
+          continue;
+        }
+      }
+    }
+    throw lastError || new Error("PerfexCRM: Failed to get invoice");
   }
 
   // Get leads
@@ -275,33 +345,78 @@ export class PerfexCRMClient {
     if (params?.status !== undefined)
       queryParams.append("status", params.status.toString());
 
-    const endpoint = `/v1/leads${queryParams.toString() ? `?${queryParams}` : ""}`;
-    return this.get<PerfexCRMLead[]>(endpoint);
+    const queryString = queryParams.toString() ? `?${queryParams}` : "";
+    const endpoints = [
+      `/api/v1/leads${queryString}`,
+      `/v1/leads${queryString}`,
+    ];
+
+    let lastError: Error | null = null;
+    for (const endpoint of endpoints) {
+      try {
+        return await this.get<PerfexCRMLead[]>(endpoint);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (endpoint !== endpoints[endpoints.length - 1]) {
+          continue;
+        }
+      }
+    }
+    throw lastError || new Error("PerfexCRM: Failed to get leads");
   }
 
   // Get lead by ID
   async getLead(id: string): Promise<PerfexCRMLead> {
-    return this.get<PerfexCRMLead>(`/v1/leads/${id}`);
+    const endpoints = [`/api/v1/leads/${id}`, `/v1/leads/${id}`];
+    let lastError: Error | null = null;
+    for (const endpoint of endpoints) {
+      try {
+        return await this.get<PerfexCRMLead>(endpoint);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        if (endpoint !== endpoints[endpoints.length - 1]) {
+          continue;
+        }
+      }
+    }
+    throw lastError || new Error("PerfexCRM: Failed to get lead");
   }
 
   // Get dashboard statistics (custom endpoint if available)
   async getStatistics(): Promise<Record<string, unknown>> {
-    try {
-      return await this.get<Record<string, unknown>>("/v1/dashboard/statistics");
-    } catch (error) {
-      // If statistics endpoint doesn't exist, calculate from other endpoints
-      const [customers, invoices, leads] = await Promise.all([
-        this.getCustomers({ limit: 1 }),
-        this.getInvoices({ limit: 1 }),
-        this.getLeads({ limit: 1 }),
-      ]);
+    // Try statistics endpoint first with different variations
+    const statEndpoints = [
+      "/api/v1/dashboard/statistics",
+      "/v1/dashboard/statistics",
+      "/api/v1/statistics",
+      "/v1/statistics",
+    ];
 
-      return {
-        total_customers: customers.length,
-        total_invoices: invoices.length,
-        total_leads: leads.length,
-      };
+    for (const endpoint of statEndpoints) {
+      try {
+        return await this.get<Record<string, unknown>>(endpoint);
+      } catch (error) {
+        // Continue to next endpoint or fallback
+        if (endpoint === statEndpoints[statEndpoints.length - 1]) {
+          // If all statistics endpoints failed, calculate from other endpoints
+          console.log("[PerfexCRM] Statistics endpoint not available, calculating from data...");
+          const [customers, invoices, leads] = await Promise.all([
+            this.getCustomers({ limit: 1 }),
+            this.getInvoices({ limit: 1 }),
+            this.getLeads({ limit: 1 }),
+          ]);
+
+          return {
+            total_customers: customers.length,
+            total_invoices: invoices.length,
+            total_leads: leads.length,
+          };
+        }
+      }
     }
+
+    // This should never be reached, but TypeScript needs it
+    throw new Error("PerfexCRM: Failed to get statistics");
   }
 }
 
