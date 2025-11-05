@@ -274,6 +274,7 @@ export default function DashboardPage() {
           value={(perfexcrmData.total_revenue as number) || 0}
           description="From PerfexCRM"
           icon={<DollarSign className="h-4 w-4" />}
+          isCurrency={true}
         />
         <MetricCard
           title="Total Invoices"

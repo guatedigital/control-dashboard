@@ -14,6 +14,7 @@ export interface MetricCardProps {
   };
   icon?: React.ReactNode;
   className?: string;
+  isCurrency?: boolean; // Add flag to indicate if value should be formatted as currency
 }
 
 export function MetricCard({
@@ -23,14 +24,20 @@ export function MetricCard({
   trend,
   icon,
   className,
+  isCurrency = false,
 }: MetricCardProps) {
   const formatValue = (val: string | number): string => {
     if (typeof val === "number") {
-      if (val >= 1000000) {
-        return `$${(val / 1000000).toFixed(2)}M`;
-      } else if (val >= 1000) {
-        return `$${(val / 1000).toFixed(2)}K`;
+      // Only format as currency if explicitly marked
+      if (isCurrency) {
+        if (val >= 1000000) {
+          return `$${(val / 1000000).toFixed(2)}M`;
+        } else if (val >= 1000) {
+          return `$${(val / 1000).toFixed(2)}K`;
+        }
+        return `$${val.toLocaleString()}`;
       }
+      // For non-currency values, just format as number
       return val.toLocaleString();
     }
     return val;
