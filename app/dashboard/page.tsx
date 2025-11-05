@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { MetricCard } from "@/components/dashboard/metric-card";
-import { Users, FileText, MessageSquare, DollarSign, TrendingUp } from "lucide-react";
+import { Users, FileText, MessageSquare, DollarSign, TrendingUp, UserPlus, Mail, Clock, CheckCircle, ArrowDown, ArrowUp, Send } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRealtimeData } from "@/lib/hooks/use-realtime-data";
 
@@ -301,6 +301,75 @@ export default function DashboardPage() {
           }
           description="From Uchat"
         />
+      </div>
+
+      {/* Uchat Daily Metrics Section */}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold mb-4">Uchat - Daily Activity</h2>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+          <MetricCard
+            title="New Users Today"
+            value={(uchatData.new_users_today as number) || 0}
+            description="From Uchat"
+            icon={<UserPlus className="h-4 w-4" />}
+          />
+          <MetricCard
+            title="Total Messages Today"
+            value={(uchatData.total_messages_today as number) || 0}
+            description="From Uchat"
+            icon={<MessageSquare className="h-4 w-4" />}
+          />
+          <MetricCard
+            title="Incoming Messages"
+            value={(uchatData.incoming_messages as number) || 0}
+            description="From Uchat"
+            icon={<ArrowDown className="h-4 w-4" />}
+          />
+          <MetricCard
+            title="Agent Messages"
+            value={(uchatData.agent_messages as number) || 0}
+            description="From Uchat"
+            icon={<ArrowUp className="h-4 w-4" />}
+          />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+          <MetricCard
+            title="Assigned Today"
+            value={(uchatData.assigned_today as number) || 0}
+            description="From Uchat"
+            icon={<CheckCircle className="h-4 w-4" />}
+          />
+          <MetricCard
+            title="Resolved Today"
+            value={(uchatData.resolved_today as number) || 0}
+            description="From Uchat"
+            icon={<CheckCircle className="h-4 w-4" />}
+          />
+          <MetricCard
+            title="Avg Resolve Time"
+            value={
+              uchatData.avg_resolve_time
+                ? `${Math.round(uchatData.avg_resolve_time as number)}s`
+                : "N/A"
+            }
+            description="From Uchat"
+            icon={<Clock className="h-4 w-4" />}
+          />
+          <MetricCard
+            title="Emails Sent"
+            value={(uchatData.emails_sent as number) || 0}
+            description="From Uchat"
+            icon={<Send className="h-4 w-4" />}
+          />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            title="Emails Opened"
+            value={(uchatData.emails_opened as number) || 0}
+            description="From Uchat"
+            icon={<Mail className="h-4 w-4" />}
+          />
+        </div>
       </div>
     </div>
   );

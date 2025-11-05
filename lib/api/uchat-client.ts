@@ -280,10 +280,13 @@ export class UchatClient {
       }
 
       // Map the flow summary data to dashboard format
-      // flow-summary provides: total_bot_users, day_active_bot_users, day_total_messages, avg_agent_response_time, avg_resolve_time
+      // flow-summary provides: total_bot_users, day_active_bot_users, day_new_bot_users, day_total_messages, 
+      // day_in_messages, day_out_messages, day_agent_messages, day_assigned, day_done, avg_agent_response_time, avg_resolve_time
       console.log("[Uchat] Mapping statistics:", {
         total_bot_users: flowSummary?.total_bot_users,
         day_active_bot_users: flowSummary?.day_active_bot_users,
+        day_new_bot_users: flowSummary?.day_new_bot_users,
+        day_total_messages: flowSummary?.day_total_messages,
         avg_agent_response_time: flowSummary?.avg_agent_response_time,
       });
       
@@ -292,6 +295,16 @@ export class UchatClient {
         active_chats: flowSummary?.day_active_bot_users ?? (conversationsData.length > 0 ? conversationsData.filter((c: any) => c.status === 'active').length : 0),
         average_response_time: flowSummary?.avg_agent_response_time ?? flowAgentSummary?.avg_agent_response_time ?? 0,
         satisfaction_score: 0, // Not available in flow-summary, would need separate endpoint
+        // Additional metrics from flow-summary
+        new_users_today: flowSummary?.day_new_bot_users ?? 0,
+        total_messages_today: flowSummary?.day_total_messages ?? 0,
+        incoming_messages: flowSummary?.day_in_messages ?? 0,
+        agent_messages: flowSummary?.day_agent_messages ?? 0,
+        assigned_today: flowSummary?.day_assigned ?? 0,
+        resolved_today: flowSummary?.day_done ?? 0,
+        avg_resolve_time: flowSummary?.avg_resolve_time ?? 0,
+        emails_sent: flowSummary?.day_email_sent ?? 0,
+        emails_opened: flowSummary?.day_email_open ?? 0,
       };
     } catch (error) {
       console.error("[Uchat] Failed to get statistics:", error);
@@ -303,6 +316,15 @@ export class UchatClient {
           active_chats: Array.isArray(conversations) ? conversations.filter((c: any) => c.status === 'active').length : 0,
           average_response_time: 0,
           satisfaction_score: 0,
+          new_users_today: 0,
+          total_messages_today: 0,
+          incoming_messages: 0,
+          agent_messages: 0,
+          assigned_today: 0,
+          resolved_today: 0,
+          avg_resolve_time: 0,
+          emails_sent: 0,
+          emails_opened: 0,
         };
       } catch (fallbackError) {
         console.error("[Uchat] Fallback also failed:", fallbackError);
@@ -312,6 +334,15 @@ export class UchatClient {
           active_chats: 0,
           average_response_time: 0,
           satisfaction_score: 0,
+          new_users_today: 0,
+          total_messages_today: 0,
+          incoming_messages: 0,
+          agent_messages: 0,
+          assigned_today: 0,
+          resolved_today: 0,
+          avg_resolve_time: 0,
+          emails_sent: 0,
+          emails_opened: 0,
         };
       }
     }
