@@ -147,12 +147,12 @@ export default function DashboardPage() {
   const { data, isLoading, error, refetch, isError } = useQuery({
     queryKey: ["dashboard-data"],
     queryFn: fetchDashboardData,
-    refetchInterval: 60000, // Refetch every 60 seconds
+    refetchInterval: false, // Disable automatic polling - only fetch on mount and manual refresh
     retry: false, // Don't retry - show error immediately if it fails
-    staleTime: 0, // Always consider data stale - ensures fresh fetch on mount
+    staleTime: Infinity, // Consider data fresh indefinitely - won't auto-refetch
     gcTime: 300000, // Keep data in cache for 5 minutes (for performance)
-    refetchOnMount: 'always', // Always refetch when component mounts (even if data is fresh)
-    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchOnMount: 'always', // Always refetch when component mounts (on login)
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
   });
 
   // Log query state for debugging
