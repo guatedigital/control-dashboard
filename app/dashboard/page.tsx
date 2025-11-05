@@ -131,9 +131,9 @@ export default function DashboardPage() {
     queryKey: ["dashboard-data"],
     queryFn: fetchDashboardData,
     refetchInterval: 60000, // Refetch every 60 seconds
-    retry: 1, // Only retry once on failure
-    retryDelay: 2000, // Wait 2 seconds before retry
+    retry: false, // Don't retry - show error immediately if it fails
     staleTime: 30000, // Consider data fresh for 30 seconds
+    gcTime: 60000, // Keep data in cache for 60 seconds
   });
 
   // Log query state for debugging
