@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { MetricCard } from "@/components/dashboard/metric-card";
-import { Users, FileText, MessageSquare, DollarSign, TrendingUp, UserPlus, Mail, Clock, CheckCircle, ArrowDown, ArrowUp, Send } from "lucide-react";
+import { Users, FileText, MessageSquare, DollarSign, TrendingUp, UserPlus, Mail, Clock, CheckCircle, ArrowDown, ArrowUp, Send, Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRealtimeData } from "@/lib/hooks/use-realtime-data";
 
@@ -450,6 +450,12 @@ export default function DashboardPage() {
             value={(uchatData.emails_opened as number) || 0}
             description="From Uchat"
             icon={<Mail className="h-4 w-4" />}
+          />
+          <MetricCard
+            title="Open Conversations"
+            value={(uchatData.number_of_opens as number) || 0}
+            description="From Uchat"
+            icon={<Eye className="h-4 w-4" />}
           />
         </div>
       </div>

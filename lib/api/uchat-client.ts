@@ -190,7 +190,16 @@ export class UchatClient {
     const endpoint = `/flow/conversations/data${queryString}`;
     
     try {
-      return await this.get<any[]>(endpoint);
+      const result = await this.get<any>(endpoint);
+      // Normalize response to always return an array
+      // Handle both array and single object responses
+      if (Array.isArray(result)) {
+        return result;
+      } else if (result && typeof result === 'object') {
+        // If it's a single object, wrap it in an array
+        return [result];
+      }
+      return [];
     } catch (error) {
       console.error("[Uchat] Failed to get conversations data:", error);
       throw error;
@@ -294,9 +303,20 @@ export class UchatClient {
 
       // Get conversations data for chat counts (optional, as we can use flow summary data)
       let conversationsData: any[] = [];
+      let totalOpens = 0;
       try {
         const conversationsResponse = await this.getConversationsData({ limit: 1000 });
-        conversationsData = Array.isArray(conversationsResponse) ? conversationsResponse : [];
+        conversationsData = conversationsResponse;
+        
+        // Calculate total number_of_opens from all conversations
+        // getConversationsData always returns an array, so we can safely iterate
+        totalOpens = conversationsResponse.reduce((sum: number, conv: any) => {
+          // Handle different response structures:
+          // 1. Direct object with number_of_opens: { number_of_opens: 0, ... }
+          // 2. Object with nested data: { data: { number_of_opens: 0, ... } }
+          const opens = conv?.number_of_opens ?? conv?.data?.number_of_opens ?? 0;
+          return sum + (typeof opens === 'number' ? opens : 0);
+        }, 0);
       } catch (e) {
         // Ignore if not available
         console.log("[Uchat] Conversations data not available");
@@ -311,6 +331,7 @@ export class UchatClient {
         day_new_bot_users: flowSummary?.day_new_bot_users,
         day_total_messages: flowSummary?.day_total_messages,
         avg_agent_response_time: flowSummary?.avg_agent_response_time,
+        number_of_opens: totalOpens,
       });
       
       return {
@@ -328,15 +349,21 @@ export class UchatClient {
         avg_resolve_time: flowSummary?.avg_resolve_time ?? 0,
         emails_sent: flowSummary?.day_email_sent ?? 0,
         emails_opened: flowSummary?.day_email_open ?? 0,
+        number_of_opens: totalOpens,
       };
     } catch (error) {
       console.error("[Uchat] Failed to get statistics:", error);
       // Fallback: try to get conversations data directly
       try {
         const conversations = await this.getConversationsData({ limit: 100 });
+        // getConversationsData always returns an array
+        const totalOpens = conversations.reduce((sum: number, conv: any) => {
+          const opens = conv?.number_of_opens ?? conv?.data?.number_of_opens ?? 0;
+          return sum + (typeof opens === 'number' ? opens : 0);
+        }, 0);
         return {
-          total_chats: Array.isArray(conversations) ? conversations.length : 0,
-          active_chats: Array.isArray(conversations) ? conversations.filter((c: any) => c.status === 'active').length : 0,
+          total_chats: conversations.length,
+          active_chats: conversations.filter((c: any) => c.status === 'active').length,
           average_response_time: 0,
           satisfaction_score: 0,
           new_users_today: 0,
@@ -348,6 +375,7 @@ export class UchatClient {
           avg_resolve_time: 0,
           emails_sent: 0,
           emails_opened: 0,
+          number_of_opens: totalOpens,
         };
       } catch (fallbackError) {
         console.error("[Uchat] Fallback also failed:", fallbackError);
@@ -366,6 +394,7 @@ export class UchatClient {
           avg_resolve_time: 0,
           emails_sent: 0,
           emails_opened: 0,
+          number_of_opens: 0,
         };
       }
     }
