@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuth } from "@/lib/auth/verify-auth";
+import { withRateLimit, RateLimitPresets } from "@/lib/utils/rate-limit-middleware";
 
-export async function GET(request: NextRequest) {
+async function handleCheck(request: NextRequest) {
   const authResult = await verifyAuth(request);
 
   if (!authResult.authorized) {
@@ -16,5 +17,17 @@ export async function GET(request: NextRequest) {
     authorized: true,
     user: authResult.user,
   });
+}
+
+// Apply rate limiting (100 requests per minute per IP)
+export async function GET(request: NextRequest) {
+  return withRateLimit(
+    request,
+    {
+      ...RateLimitPresets.standard,
+      requireAuth: false, // This endpoint is used to check auth, so it can't require auth
+    },
+    handleCheck
+  );
 }
 

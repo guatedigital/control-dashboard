@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UchatClient } from "@/lib/api/uchat-client";
 import { verifyAuth } from "@/lib/auth/verify-auth";
+import { withRateLimit, RateLimitPresets } from "@/lib/utils/rate-limit-middleware";
 
 const uchatConfig = {
   apiUrl: process.env.NEXT_PUBLIC_UCHAT_API_URL || "",
   apiKey: process.env.UCHAT_API_KEY || "",
 };
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   // Verify authentication first
   const authResult = await verifyAuth(request);
   
@@ -84,5 +85,17 @@ export async function GET(request: NextRequest) {
     };
     return NextResponse.json(errorDetails, { status: 500 });
   }
+}
+
+// Apply rate limiting (20 requests per minute per authenticated user)
+export async function GET(request: NextRequest) {
+  return withRateLimit(
+    request,
+    {
+      ...RateLimitPresets.moderate,
+      requireAuth: true,
+    },
+    handleGet
+  );
 }
 

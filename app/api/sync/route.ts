@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDataSyncService } from "@/lib/services/data-sync";
 import { verifyAuth } from "@/lib/auth/verify-auth";
+import { withRateLimit, RateLimitPresets } from "@/lib/utils/rate-limit-middleware";
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   // Verify authentication first
   const authResult = await verifyAuth(request);
   
@@ -48,4 +49,16 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Apply rate limiting (5 requests per 15 minutes per authenticated user - strict for sync operations)
+export async function POST(request: NextRequest) {
+  return withRateLimit(
+    request,
+    {
+      ...RateLimitPresets.strict,
+      requireAuth: true,
+    },
+    handlePost
+  );
 }

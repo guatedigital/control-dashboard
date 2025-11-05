@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { verifyAuth } from "@/lib/auth/verify-auth";
+import { withRateLimit, RateLimitPresets } from "@/lib/utils/rate-limit-middleware";
 
-export async function GET(request: NextRequest) {
+async function handleDebug(request: NextRequest) {
   // Verify authentication - debug endpoints should be protected
   const authResult = await verifyAuth(request);
   
@@ -134,5 +135,17 @@ export async function GET(request: NextRequest) {
     apiKeyLength: apiKey.length,
     tests,
   });
+}
+
+// Apply rate limiting (5 requests per 15 minutes per authenticated user - strict for debug endpoints)
+export async function GET(request: NextRequest) {
+  return withRateLimit(
+    request,
+    {
+      ...RateLimitPresets.strict,
+      requireAuth: true,
+    },
+    handleDebug
+  );
 }
 
