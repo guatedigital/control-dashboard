@@ -16,11 +16,18 @@ export class PerfexCRMClient {
   constructor(config: PerfexCRMConfig) {
     this.config = config;
     // PerfexCRM uses X-API-KEY header for authentication
+    // Add browser-like headers to bypass Cloudflare protection
     this.client = axios.create({
       baseURL: config.apiUrl,
       headers: {
         "Content-Type": "application/json",
         "X-API-KEY": config.apiKey,
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Referer": config.apiUrl.replace("/api", ""),
+        "Origin": config.apiUrl.replace("/api", ""),
       },
       timeout: 30000,
     });
@@ -121,7 +128,16 @@ export class PerfexCRMClient {
       const response = await this.client.get<PerfexCRMResponse<T>>(endpoint);
       
       console.log(`[PerfexCRM] Response status: ${response.status}`);
-      console.log(`[PerfexCRM] Response data:`, JSON.stringify(response.data).substring(0, 500));
+      
+      // Check if response is HTML (Cloudflare challenge)
+      const contentType = response.headers['content-type'] || '';
+      const responseText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+      
+      if (contentType.includes('text/html') || responseText.includes('Just a moment') || responseText.includes('cf-challenge')) {
+        throw new Error("PerfexCRM: Cloudflare protection is blocking the request. Please check:\n1. IP restrictions in Cloudflare\n2. Firewall rules\n3. Consider using a different API endpoint or whitelisting Vercel IPs");
+      }
+      
+      console.log(`[PerfexCRM] Response data:`, responseText.substring(0, 500));
       
       // Handle different response formats
       if (response.data && typeof response.data === 'object') {
