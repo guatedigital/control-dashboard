@@ -68,7 +68,12 @@ async function handleGet(request: NextRequest) {
         );
     }
 
-    return NextResponse.json({ success: true, data });
+    // Add cache-control headers to prevent browser caching
+    const response = NextResponse.json({ success: true, data });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    return response;
   } catch (error) {
     console.error("PerfexCRM API error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";

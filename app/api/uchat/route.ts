@@ -63,6 +63,41 @@ async function handleGet(request: NextRequest) {
       case "statistics":
         data = await client.getStatistics();
         break;
+      case "agent-activity-log":
+      case "agent-activity":
+        const agentId = searchParams.get("agent_id") || undefined;
+        const logStartDate = searchParams.get("start_date") || undefined;
+        const logEndDate = searchParams.get("end_date") || undefined;
+        data = await client.getAgentActivityLogData({
+          limit,
+          offset,
+          agent_id: agentId,
+          start_date: logStartDate,
+          end_date: logEndDate,
+        });
+        break;
+      case "custom-events-summary":
+      case "events-summary":
+        const eventsSummaryStartDate = searchParams.get("start_date") || undefined;
+        const eventsSummaryEndDate = searchParams.get("end_date") || undefined;
+        data = await client.getCustomEventsSummary({
+          start_date: eventsSummaryStartDate,
+          end_date: eventsSummaryEndDate,
+        });
+        break;
+      case "custom-events":
+      case "events":
+        const eventName = searchParams.get("event_name") || undefined;
+        const eventsStartDate = searchParams.get("start_date") || undefined;
+        const eventsEndDate = searchParams.get("end_date") || undefined;
+        data = await client.getCustomEventsData({
+          limit,
+          offset,
+          event_name: eventName,
+          start_date: eventsStartDate,
+          end_date: eventsEndDate,
+        });
+        break;
       default:
         return NextResponse.json(
           { error: `Unknown endpoint: ${endpoint}` },
@@ -70,7 +105,12 @@ async function handleGet(request: NextRequest) {
         );
     }
 
-    return NextResponse.json({ success: true, data });
+    // Add cache-control headers to prevent browser caching
+    const response = NextResponse.json({ success: true, data });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    return response;
   } catch (error) {
     console.error("Uchat API error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";

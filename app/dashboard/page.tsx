@@ -149,8 +149,10 @@ export default function DashboardPage() {
     queryFn: fetchDashboardData,
     refetchInterval: 60000, // Refetch every 60 seconds
     retry: false, // Don't retry - show error immediately if it fails
-    staleTime: 30000, // Consider data fresh for 30 seconds
-    gcTime: 60000, // Keep data in cache for 60 seconds
+    staleTime: 0, // Always consider data stale - ensures fresh fetch on mount
+    gcTime: 300000, // Keep data in cache for 5 minutes (for performance)
+    refetchOnMount: 'always', // Always refetch when component mounts (even if data is fresh)
+    refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
   // Log query state for debugging

@@ -39,7 +39,7 @@ export class PerfexCRMClientBrowser {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "X-API-KEY": this.apiKey,
+            "authtoken": this.apiKey,
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en-US,en;q=0.9",
           },

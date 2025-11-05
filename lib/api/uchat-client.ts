@@ -5,6 +5,9 @@ import type {
   UchatChat,
   UchatMessage,
   UchatAnalytics,
+  UchatAgentActivityLog,
+  UchatCustomEventSummary,
+  UchatCustomEventData,
 } from "@/types/api";
 
 export class UchatClient {
@@ -345,6 +348,99 @@ export class UchatClient {
           emails_opened: 0,
         };
       }
+    }
+  }
+
+  // Get agent activity log data
+  async getAgentActivityLogData(params?: {
+    limit?: number;
+    offset?: number;
+    agent_id?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<UchatAgentActivityLog[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.offset) queryParams.append("offset", params.offset.toString());
+    if (params?.agent_id) queryParams.append("agent_id", params.agent_id);
+    if (params?.start_date) queryParams.append("start_date", params.start_date);
+    if (params?.end_date) queryParams.append("end_date", params.end_date);
+
+    const queryString = queryParams.toString() ? `?${queryParams}` : "";
+    const endpoint = `/flow/agent-activity-log/data${queryString}`;
+    
+    try {
+      const result = await this.get<any>(endpoint);
+      // Handle both array and object responses
+      if (Array.isArray(result)) {
+        return result;
+      } else if (result && typeof result === 'object' && 'data' in result) {
+        return Array.isArray(result.data) ? result.data : [result.data];
+      }
+      return [];
+    } catch (error) {
+      console.error("[Uchat] Failed to get agent activity log data:", error);
+      throw error;
+    }
+  }
+
+  // Get custom events summary
+  async getCustomEventsSummary(params?: {
+    start_date?: string;
+    end_date?: string;
+  }): Promise<UchatCustomEventSummary[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.start_date) queryParams.append("start_date", params.start_date);
+    if (params?.end_date) queryParams.append("end_date", params.end_date);
+
+    const queryString = queryParams.toString() ? `?${queryParams}` : "";
+    const endpoint = `/flow/custom-events/summary${queryString}`;
+    
+    try {
+      const result = await this.get<any>(endpoint);
+      // Handle both array and object responses
+      if (Array.isArray(result)) {
+        return result;
+      } else if (result && typeof result === 'object' && 'data' in result) {
+        return Array.isArray(result.data) ? result.data : [result.data];
+      }
+      return [];
+    } catch (error) {
+      console.error("[Uchat] Failed to get custom events summary:", error);
+      throw error;
+    }
+  }
+
+  // Get custom events data (detailed)
+  async getCustomEventsData(params?: {
+    limit?: number;
+    offset?: number;
+    event_name?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<UchatCustomEventData[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.limit) queryParams.append("limit", params.limit.toString());
+    if (params?.offset) queryParams.append("offset", params.offset.toString());
+    if (params?.event_name) queryParams.append("event_name", params.event_name);
+    if (params?.start_date) queryParams.append("start_date", params.start_date);
+    if (params?.end_date) queryParams.append("end_date", params.end_date);
+
+    const queryString = queryParams.toString() ? `?${queryParams}` : "";
+    const endpoint = `/flow/custom-events/data${queryString}`;
+    
+    try {
+      const result = await this.get<any>(endpoint);
+      // Handle both array and object responses
+      if (Array.isArray(result)) {
+        return result;
+      } else if (result && typeof result === 'object' && 'data' in result) {
+        return Array.isArray(result.data) ? result.data : [result.data];
+      }
+      return [];
+    } catch (error) {
+      console.error("[Uchat] Failed to get custom events data:", error);
+      throw error;
     }
   }
 }

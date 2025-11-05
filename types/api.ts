@@ -79,3 +79,32 @@ export interface UchatAnalytics {
   satisfaction_score?: number;
 }
 
+export interface UchatAgentActivityLog {
+  id?: string;
+  agent_id?: string;
+  agent_name?: string;
+  action?: string;
+  conversation_id?: string;
+  timestamp?: string;
+  details?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface UchatCustomEventSummary {
+  event_name?: string;
+  event_count?: number;
+  first_occurrence?: string;
+  last_occurrence?: string;
+  [key: string]: unknown;
+}
+
+export interface UchatCustomEventData {
+  id?: string;
+  event_name?: string;
+  user_id?: string;
+  conversation_id?: string;
+  timestamp?: string;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+

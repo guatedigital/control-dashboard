@@ -19,13 +19,13 @@ export class PerfexCRMClient {
     // Normalize baseURL - remove trailing /api if present to avoid double /api/api
     this.baseURL = config.apiUrl.replace(/\/api\/?$/, ''); // Remove trailing /api
     
-    // PerfexCRM uses X-API-KEY header for authentication
+    // PerfexCRM uses 'authtoken' header for authentication (per official API documentation)
     // Add browser-like headers to bypass Cloudflare protection
     this.client = axios.create({
       baseURL: this.baseURL,
       headers: {
         "Content-Type": "application/json",
-        "X-API-KEY": config.apiKey,
+        "authtoken": config.apiKey,
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
@@ -102,7 +102,7 @@ export class PerfexCRMClient {
         customError.message = "PerfexCRM: Authentication failed. Please check your API key.";
       } else if (status === 403) {
         if (isCloudflareChallenge) {
-          customError.message = `PerfexCRM: Cloudflare protection is blocking the request. Please configure Cloudflare to allow API requests with X-API-KEY header.\n\nURL: ${this.config.apiUrl}${requestUrl}`;
+          customError.message = `PerfexCRM: Cloudflare protection is blocking the request. Please configure Cloudflare to allow API requests with 'authtoken' header.\n\nURL: ${this.config.apiUrl}${requestUrl}`;
         } else {
           customError.message = `PerfexCRM: Access forbidden (403). This usually means:\n1. API key is invalid or expired\n2. API key doesn't have required permissions\n3. IP restrictions are blocking the request\n4. Wrong authentication method\n\nURL: ${this.config.apiUrl}${requestUrl}\nResponse: ${message}`;
         }
