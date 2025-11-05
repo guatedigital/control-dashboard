@@ -16,8 +16,22 @@ export class PerfexCRMClient {
 
   constructor(config: PerfexCRMConfig) {
     this.config = config;
+    
+    // Validate configuration
+    if (!config.apiUrl || !config.apiKey) {
+      throw new Error("PerfexCRM API configuration is incomplete: apiUrl and apiKey are required");
+    }
+    
     // Normalize baseURL - remove trailing /api if present to avoid double /api/api
     this.baseURL = config.apiUrl.replace(/\/api\/?$/, ''); // Remove trailing /api
+    
+    // Ensure baseURL has protocol
+    if (!this.baseURL.startsWith('http://') && !this.baseURL.startsWith('https://')) {
+      this.baseURL = `https://${this.baseURL}`;
+    }
+    
+    console.log(`[PerfexCRM] Initializing client for: ${this.baseURL}`);
+    console.log(`[PerfexCRM] API Key: ${config.apiKey ? `${config.apiKey.substring(0, 8)}...` : 'MISSING'}`);
     
     // PerfexCRM uses 'authtoken' header for authentication (per official API documentation)
     // Add browser-like headers to bypass Cloudflare protection
@@ -25,7 +39,7 @@ export class PerfexCRMClient {
       baseURL: this.baseURL,
       headers: {
         "Content-Type": "application/json",
-        "authtoken": config.apiKey,
+        "authtoken": config.apiKey, // This is the correct header name per PerfexCRM API docs
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
@@ -36,9 +50,19 @@ export class PerfexCRMClient {
       timeout: 30000,
     });
 
-    // Add request interceptor for logging
+    // Add request interceptor to ensure authtoken header is always set
     this.client.interceptors.request.use(
       (config) => {
+        // Ensure authtoken header is always present
+        if (!config.headers['authtoken'] && this.config.apiKey) {
+          config.headers['authtoken'] = this.config.apiKey;
+        }
+        // Log request details for debugging
+        console.log(`[PerfexCRM] Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+        console.log(`[PerfexCRM] Headers:`, {
+          authtoken: config.headers['authtoken'] ? 'SET' : 'MISSING',
+          contentType: config.headers['Content-Type'],
+        });
         return config;
       },
       (error) => {

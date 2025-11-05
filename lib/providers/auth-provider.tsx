@@ -33,11 +33,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Check authorization with timeout (don't block loading state)
-        const authPromise = checkAuthorization(session?.user);
-        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 5000)); // 5 second timeout
+        // If no session, set loading to false immediately
+        if (!session || !session.user) {
+          setIsAuthorized(false);
+          setLoading(false);
+          return;
+        }
         
-        Promise.race([authPromise, timeoutPromise]).finally(() => {
+        // Check authorization with timeout (don't block loading state)
+        const authPromise = checkAuthorization(session.user);
+        const timeoutPromise = new Promise<void>(resolve => {
+          setTimeout(() => {
+            console.warn("Auth initialization timeout - setting loading to false");
+            resolve();
+          }, 5000); // 5 second timeout
+        });
+        
+        Promise.race([authPromise, timeoutPromise]).then(() => {
+          if (isMounted) {
+            setLoading(false);
+          }
+        }).catch(() => {
           if (isMounted) {
             setLoading(false);
           }
@@ -45,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error("Auth initialization error:", error);
         if (isMounted) {
+          setIsAuthorized(false);
           setLoading(false);
         }
       }
@@ -61,11 +78,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       
-      // Check authorization with timeout
-      const authPromise = checkAuthorization(session?.user);
-      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 5000));
+      // If no session, set loading to false immediately
+      if (!session || !session.user) {
+        setIsAuthorized(false);
+        if (isMounted) {
+          setLoading(false);
+        }
+        return;
+      }
       
-      Promise.race([authPromise, timeoutPromise]).finally(() => {
+      // Check authorization with timeout
+      const authPromise = checkAuthorization(session.user);
+      const timeoutPromise = new Promise<void>(resolve => {
+        setTimeout(() => {
+          console.warn("Auth state change timeout - setting loading to false");
+          resolve();
+        }, 5000);
+      });
+      
+      Promise.race([authPromise, timeoutPromise]).then(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }).catch(() => {
         if (isMounted) {
           setLoading(false);
         }
@@ -78,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const checkAuthorization = async (user: User | null | undefined) => {
+  const checkAuthorization = async (user: User | null | undefined): Promise<void> => {
     if (!user?.email) {
       setIsAuthorized(false);
       return;
@@ -87,11 +122,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Get the session token with timeout
       const sessionPromise = supabase.auth.getSession();
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise<{ data: { session: Session | null } }>((_, reject) => 
         setTimeout(() => reject(new Error("Session check timeout")), 3000)
       );
       
-      const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+      const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
       
       if (!session?.access_token) {
         setIsAuthorized(false);
@@ -111,6 +146,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
         clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          setIsAuthorized(false);
+          return;
+        }
+        
         const result = await response.json();
         
         if (result.authorized) {
