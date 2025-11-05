@@ -142,10 +142,28 @@ export class UchatClient {
     if (params?.offset) queryParams.append("offset", params.offset.toString());
     if (params?.status) queryParams.append("status", params.status);
 
-    // If baseURL ends with /api, don't add /api prefix again
-    // Uchat baseURL is https://www.uchat.com.au/api, so endpoints should be relative
-    const endpoint = `/chats${queryParams.toString() ? `?${queryParams}` : ""}`;
-    return this.get<UchatChat[]>(endpoint);
+    // Try different endpoint paths
+    const endpoints = [
+      `/chats${queryParams.toString() ? `?${queryParams}` : ""}`,
+      `/api/chats${queryParams.toString() ? `?${queryParams}` : ""}`,
+    ];
+
+    // Try first endpoint, fallback to second if it fails
+    for (const endpoint of endpoints) {
+      try {
+        return await this.get<UchatChat[]>(endpoint);
+      } catch (error) {
+        // If this is the last endpoint, throw the error
+        if (endpoint === endpoints[endpoints.length - 1]) {
+          throw error;
+        }
+        // Otherwise, try next endpoint
+        console.log(`[Uchat] Endpoint ${endpoint} failed, trying next...`);
+      }
+    }
+    
+    // This should never be reached, but TypeScript needs it
+    throw new Error("Uchat: All endpoint variations failed");
   }
 
   // Get chat by ID

@@ -13,58 +13,98 @@ async function fetchDashboardData() {
   const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
   try {
-    const [perfexcrmRes, uchatRes] = await Promise.all([
+    // Fetch both APIs in parallel, but don't fail if one fails
+    const [perfexcrmRes, uchatRes] = await Promise.allSettled([
       fetch("/api/perfexcrm?endpoint=statistics", {
         signal: controller.signal,
-      }).catch((err) => {
-        if (err.name === 'AbortError') {
-          throw new Error("PerfexCRM request timed out after 30 seconds");
-        }
-        throw err;
       }),
       fetch("/api/uchat?endpoint=statistics", {
         signal: controller.signal,
-      }).catch((err) => {
-        if (err.name === 'AbortError') {
-          throw new Error("Uchat request timed out after 30 seconds");
-        }
-        throw err;
       }),
     ]);
 
     clearTimeout(timeoutId);
 
-    const perfexcrm = await perfexcrmRes.json().catch(() => ({
-      success: false,
-      error: "Failed to parse PerfexCRM response",
-    }));
-    const uchat = await uchatRes.json().catch(() => ({
-      success: false,
-      error: "Failed to parse Uchat response",
-    }));
+    // Process PerfexCRM response
+    let perfexcrm = {};
+    let perfexcrmError: string | null = null;
+    
+    if (perfexcrmRes.status === 'fulfilled') {
+      try {
+        const perfexcrmData = await perfexcrmRes.value.json().catch(() => ({
+          success: false,
+          error: "Failed to parse PerfexCRM response",
+        }));
 
-    // Check for errors
-    if (!perfexcrmRes.ok || !perfexcrm.success) {
-      console.error("PerfexCRM error:", perfexcrm);
-      // Extract error message, truncate if it's HTML
-      let errorMessage = perfexcrm.error || "Failed to fetch PerfexCRM data";
-      
-      // If error message contains HTML, replace with a cleaner message
-      if (errorMessage.includes("<!doctype") || errorMessage.includes("<html")) {
-        errorMessage = "PerfexCRM: Received HTML response instead of JSON. This usually means Cloudflare is blocking the request. Please check:\n1. IP restrictions in Cloudflare\n2. Bot protection settings\n3. API endpoint accessibility";
+        if (perfexcrmRes.value.ok && perfexcrmData.success) {
+          perfexcrm = perfexcrmData.data || {};
+        } else {
+          let errorMessage = perfexcrmData.error || "Failed to fetch PerfexCRM data";
+          if (errorMessage.includes("<!doctype") || errorMessage.includes("<html")) {
+            errorMessage = "PerfexCRM: Cloudflare is blocking the request. Check IP restrictions and bot protection settings.";
+          }
+          perfexcrmError = errorMessage;
+          console.error("PerfexCRM error:", errorMessage);
+        }
+      } catch (err) {
+        perfexcrmError = err instanceof Error ? err.message : "Failed to fetch PerfexCRM data";
+        console.error("PerfexCRM error:", perfexcrmError);
       }
-      
-      throw new Error(errorMessage);
+    } else {
+      perfexcrmError = perfexcrmRes.reason instanceof Error 
+        ? perfexcrmRes.reason.message 
+        : "PerfexCRM request failed";
+      console.error("PerfexCRM request error:", perfexcrmError);
     }
 
-    if (!uchatRes.ok || !uchat.success) {
-      console.error("Uchat error:", uchat);
-      throw new Error(uchat.error || "Failed to fetch Uchat data");
+    // Process Uchat response
+    let uchat = {};
+    let uchatError: string | null = null;
+    
+    if (uchatRes.status === 'fulfilled') {
+      try {
+        const uchatData = await uchatRes.value.json().catch(() => ({
+          success: false,
+          error: "Failed to parse Uchat response",
+        }));
+
+        if (uchatRes.value.ok && uchatData.success) {
+          uchat = uchatData.data || {};
+        } else {
+          uchatError = uchatData.error || "Failed to fetch Uchat data";
+          console.error("Uchat error:", uchatError);
+        }
+      } catch (err) {
+        uchatError = err instanceof Error ? err.message : "Failed to fetch Uchat data";
+        console.error("Uchat error:", uchatError);
+      }
+    } else {
+      uchatError = uchatRes.reason instanceof Error 
+        ? uchatRes.reason.message 
+        : "Uchat request failed";
+      console.error("Uchat request error:", uchatError);
+    }
+
+    // If both APIs failed, throw an error
+    if (perfexcrmError && uchatError) {
+      throw new Error(`Both APIs failed:\n- PerfexCRM: ${perfexcrmError}\n- Uchat: ${uchatError}`);
+    }
+
+    // If at least one succeeded, return the data (with warnings for failed ones)
+    if (perfexcrmError) {
+      console.warn("PerfexCRM failed, but continuing with Uchat data:", perfexcrmError);
+    }
+    if (uchatError) {
+      console.warn("Uchat failed, but continuing with PerfexCRM data:", uchatError);
     }
 
     return {
-      perfexcrm: perfexcrm.data || {},
-      uchat: uchat.data || {},
+      perfexcrm,
+      uchat,
+      errors: {
+        perfexcrm: perfexcrmError,
+        uchat: uchatError,
+      },
     };
   } catch (error) {
     clearTimeout(timeoutId);
@@ -147,6 +187,7 @@ export default function DashboardPage() {
 
   const perfexcrm = data?.perfexcrm || {};
   const uchat = data?.uchat || {};
+  const errors = data?.errors;
 
   // Try to get data from real-time insights if available
   const perfexcrmInsight = aggregatedInsights.find(
@@ -165,6 +206,22 @@ export default function DashboardPage() {
         onRefresh={() => refetch()}
         lastUpdated={lastUpdated}
       />
+
+      {/* Show warnings if one API failed */}
+      {errors && (
+        <div className="mb-6 space-y-2">
+          {errors.perfexcrm && (
+            <div className="rounded-md bg-yellow-500/15 p-3 text-sm text-yellow-700 dark:text-yellow-400">
+              <strong>PerfexCRM:</strong> {errors.perfexcrm}
+            </div>
+          )}
+          {errors.uchat && (
+            <div className="rounded-md bg-yellow-500/15 p-3 text-sm text-yellow-700 dark:text-yellow-400">
+              <strong>Uchat:</strong> {errors.uchat}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <MetricCard
