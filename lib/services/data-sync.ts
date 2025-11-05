@@ -157,13 +157,8 @@ export class DataSyncService {
         },
       });
 
-      // Fetch analytics
-      const analytics = await client.getAnalytics();
-      await supabaseAdmin.from("uchat_metrics").upsert({
-        metric_type: "analytics",
-        metric_key: "summary",
-        metric_value: analytics,
-      });
+      // Analytics endpoint doesn't exist in Uchat API - skip it
+      // Note: Analytics endpoint was removed as it returns 404 in Uchat API
 
       // Store aggregated insights
       await supabaseAdmin.from("aggregated_insights").upsert({
@@ -174,6 +169,16 @@ export class DataSyncService {
           active_chats: statistics.active_chats || activeChats.length,
           average_response_time: statistics.average_response_time,
           satisfaction_score: statistics.satisfaction_score,
+          // Include all statistics fields from Uchat
+          new_users_today: statistics.new_users_today || 0,
+          total_messages_today: statistics.total_messages_today || 0,
+          incoming_messages: statistics.incoming_messages || 0,
+          agent_messages: statistics.agent_messages || 0,
+          assigned_today: statistics.assigned_today || 0,
+          resolved_today: statistics.resolved_today || 0,
+          avg_resolve_time: statistics.avg_resolve_time || 0,
+          emails_sent: statistics.emails_sent || 0,
+          emails_opened: statistics.emails_opened || 0,
           updated_at: new Date().toISOString(),
         },
         source: "uchat",
