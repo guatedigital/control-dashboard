@@ -144,11 +144,53 @@ async function fetchDashboardData() {
 
 export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const { aggregatedInsights } = useRealtimeData();
 
+  // Fetch data from database by date
+  const fetchDataByDate = async (date: string) => {
+    const { supabase } = await import("@/lib/supabase/client");
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      throw new Error("Not authenticated. Please log in again.");
+    }
+
+    // Check if date is today - if so, fetch from live APIs, otherwise from database
+    const today = new Date().toISOString().split('T')[0];
+    const isToday = date === today;
+
+    if (isToday) {
+      // For today, fetch from live APIs (current behavior)
+      return fetchDashboardData();
+    } else {
+      // For historical dates, fetch from database
+      const response = await fetch(`/api/metrics?date=${date}&source=all`, {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metrics: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || "Failed to fetch metrics");
+      }
+
+      return {
+        perfexcrm: result.data.perfexcrm || {},
+        uchat: result.data.uchat || {},
+        date: result.date,
+      };
+    }
+  };
+
   const { data, isLoading, error, refetch, isError } = useQuery({
-    queryKey: ["dashboard-data"],
-    queryFn: fetchDashboardData,
+    queryKey: ["dashboard-data", selectedDate],
+    queryFn: () => fetchDataByDate(selectedDate),
     refetchInterval: false, // Disable automatic polling - only fetch on mount and manual refresh
     retry: false, // Don't retry - show error immediately if it fails
     staleTime: Infinity, // Consider data fresh indefinitely - won't auto-refetch
@@ -167,6 +209,11 @@ export default function DashboardPage() {
       setLastUpdated(new Date());
     }
   }, [data]);
+
+  // Refetch when date changes
+  useEffect(() => {
+    refetch();
+  }, [selectedDate, refetch]);
 
   // Update from real-time data when available
   useEffect(() => {
@@ -250,9 +297,11 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <DashboardHeader
-        onRefresh={() => refetch()}
+      <DashboardHeader 
+        onRefresh={refetch} 
         lastUpdated={lastUpdated}
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
       />
 
       {/* Show warnings if one API failed */}
