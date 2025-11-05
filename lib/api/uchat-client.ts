@@ -24,7 +24,7 @@ export class UchatClient {
       baseURL: baseURL,
       headers: {
         "Content-Type": "application/json",
-        "X-API-Key": config.apiKey, // Uchat uses API token authentication
+        "Authorization": `Bearer ${config.apiKey}`, // Uchat uses Bearer token authentication
       },
       timeout: 30000,
     });
