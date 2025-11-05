@@ -148,49 +148,38 @@ export class UchatClient {
     });
   }
 
-  // Get chats
+  // Get chats - Uchat doesn't have /chats endpoint, use conversations instead
   async getChats(params?: {
     limit?: number;
     offset?: number;
     status?: string;
   }): Promise<UchatChat[]> {
+    // Uchat doesn't have a /chats endpoint
+    // Instead, we can get conversations data or subscriber chat messages
+    // For now, return empty array or get conversations data
+    // This method may not be directly applicable to Uchat API structure
+    console.warn("[Uchat] getChats called but Uchat doesn't have /chats endpoint. Use getConversationsData() instead.");
+    return [];
+  }
+  
+  // Get conversations data (Uchat's equivalent to chats)
+  async getConversationsData(params?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<any[]> {
     const queryParams = new URLSearchParams();
     if (params?.limit) queryParams.append("limit", params.limit.toString());
     if (params?.offset) queryParams.append("offset", params.offset.toString());
-    if (params?.status) queryParams.append("status", params.status);
 
     const queryString = queryParams.toString() ? `?${queryParams}` : "";
+    const endpoint = `/flow/conversations/data${queryString}`;
     
-    // Check if baseURL already ends with /api
-    const baseURL = this.config.apiUrl;
-    const hasApiInBase = baseURL.endsWith('/api');
-    
-    // Try different endpoint paths based on baseURL structure
-    const endpoints = hasApiInBase
-      ? [
-          `/chats${queryString}`,  // If baseURL has /api, use /chats
-        ]
-      : [
-          `/chats${queryString}`,  // If baseURL doesn't have /api, try /chats first
-          `/api/chats${queryString}`,  // Then try /api/chats
-        ];
-
-    // Try first endpoint, fallback to others if it fails
-    let lastError: Error | null = null;
-    for (const endpoint of endpoints) {
-      try {
-        return await this.get<UchatChat[]>(endpoint);
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        // If this is the last endpoint, we'll throw below
-        if (endpoint !== endpoints[endpoints.length - 1]) {
-          console.log(`[Uchat] Endpoint ${endpoint} failed, trying next...`);
-        }
-      }
+    try {
+      return await this.get<any[]>(endpoint);
+    } catch (error) {
+      console.error("[Uchat] Failed to get conversations data:", error);
+      throw error;
     }
-    
-    // If all endpoints failed, throw the last error
-    throw lastError || new Error("Uchat: All endpoint variations failed");
   }
 
   // Get chat by ID
@@ -226,32 +215,67 @@ export class UchatClient {
     return this.get<UchatAnalytics>(endpoint);
   }
 
-  // Get active chats
+  // Get active chats - Uchat doesn't have this endpoint structure
   async getActiveChats(): Promise<UchatChat[]> {
-    return this.getChats({ status: "active" });
+    // Uchat uses conversations instead of chats
+    try {
+      const conversations = await this.getConversationsData();
+      // Filter for active conversations if needed
+      return conversations as UchatChat[];
+    } catch (error) {
+      console.error("[Uchat] Failed to get active chats:", error);
+      return [];
+    }
   }
 
   // Get chat statistics
   async getStatistics(): Promise<Record<string, unknown>> {
     try {
-      const analytics = await this.getAnalytics();
-      const activeChats = await this.getActiveChats();
+      // Try to get flow summary which contains analytics
+      const flowSummary = await this.get<Record<string, unknown>>("/flow-summary");
+      
+      // Also try flow-agent-summary for additional metrics
+      let flowAgentSummary: Record<string, unknown> | null = null;
+      try {
+        flowAgentSummary = await this.get<Record<string, unknown>>("/flow-agent-summary");
+      } catch (e) {
+        // Ignore if not available
+      }
+
+      // Get conversations data for chat counts
+      let conversationsData: any[] = [];
+      try {
+        conversationsData = await this.getConversationsData({ limit: 1000 });
+      } catch (e) {
+        // Ignore if not available
+      }
 
       return {
-        total_chats: analytics.total_chats,
-        active_chats: activeChats.length,
-        average_response_time: analytics.average_response_time,
-        satisfaction_score: analytics.satisfaction_score,
+        total_chats: conversationsData.length || flowSummary.total_conversations || 0,
+        active_chats: conversationsData.filter((c: any) => c.status === 'active').length || 0,
+        average_response_time: flowSummary.average_response_time || flowAgentSummary?.average_response_time || 0,
+        satisfaction_score: flowSummary.satisfaction_score || flowAgentSummary?.satisfaction_score || 0,
       };
     } catch (error) {
-      // Fallback if analytics endpoint doesn't exist
-      const chats = await this.getChats();
-      const activeChats = chats.filter((chat) => chat.status === "active");
-
-      return {
-        total_chats: chats.length,
-        active_chats: activeChats.length,
-      };
+      // Fallback: try to get conversations data directly
+      try {
+        const conversations = await this.getConversationsData({ limit: 100 });
+        return {
+          total_chats: conversations.length,
+          active_chats: conversations.filter((c: any) => c.status === 'active').length || 0,
+          average_response_time: 0,
+          satisfaction_score: 0,
+        };
+      } catch (fallbackError) {
+        console.error("[Uchat] Failed to get statistics:", fallbackError);
+        // Return empty statistics
+        return {
+          total_chats: 0,
+          active_chats: 0,
+          average_response_time: 0,
+          satisfaction_score: 0,
+        };
+      }
     }
   }
 }

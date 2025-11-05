@@ -31,7 +31,12 @@ export async function GET(request: NextRequest) {
 
     switch (endpoint) {
       case "chats":
-        data = await client.getChats({ limit, offset, status });
+        // Uchat doesn't have /chats endpoint, use conversations data instead
+        data = await client.getConversationsData({ limit, offset });
+        break;
+      case "conversations":
+        // Direct access to conversations endpoint
+        data = await client.getConversationsData({ limit, offset });
         break;
       case "analytics":
         const startDate = searchParams.get("start_date") || undefined;

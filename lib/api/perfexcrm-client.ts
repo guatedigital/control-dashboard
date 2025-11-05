@@ -244,10 +244,11 @@ export class PerfexCRMClient {
 
     const queryString = queryParams.toString() ? `?${queryParams}` : "";
     
-    // PerfexCRM API typically uses /api/v1/... endpoints
+    // PerfexCRM API uses /api/customers (not /api/v1/customers based on documentation)
     // Try different endpoint variations
     const endpoints = [
-      `/api/v1/customers${queryString}`,  // Standard PerfexCRM format
+      `/api/customers${queryString}`,     // Standard PerfexCRM format (per documentation)
+      `/api/v1/customers${queryString}`,  // Fallback: some versions use v1
       `/v1/customers${queryString}`,      // If baseURL already has /api
     ];
 
@@ -269,7 +270,7 @@ export class PerfexCRMClient {
 
   // Get customer by ID
   async getCustomer(id: string): Promise<PerfexCRMCustomer> {
-    const endpoints = [`/api/v1/customers/${id}`, `/v1/customers/${id}`];
+    const endpoints = [`/api/customers/${id}`, `/api/v1/customers/${id}`, `/v1/customers/${id}`];
     let lastError: Error | null = null;
     for (const endpoint of endpoints) {
       try {
@@ -298,6 +299,7 @@ export class PerfexCRMClient {
 
     const queryString = queryParams.toString() ? `?${queryParams}` : "";
     const endpoints = [
+      `/api/invoices${queryString}`,
       `/api/v1/invoices${queryString}`,
       `/v1/invoices${queryString}`,
     ];
@@ -318,7 +320,7 @@ export class PerfexCRMClient {
 
   // Get invoice by ID
   async getInvoice(id: string): Promise<PerfexCRMInvoice> {
-    const endpoints = [`/api/v1/invoices/${id}`, `/v1/invoices/${id}`];
+    const endpoints = [`/api/invoices/${id}`, `/api/v1/invoices/${id}`, `/v1/invoices/${id}`];
     let lastError: Error | null = null;
     for (const endpoint of endpoints) {
       try {
@@ -347,6 +349,7 @@ export class PerfexCRMClient {
 
     const queryString = queryParams.toString() ? `?${queryParams}` : "";
     const endpoints = [
+      `/api/leads${queryString}`,
       `/api/v1/leads${queryString}`,
       `/v1/leads${queryString}`,
     ];
@@ -367,7 +370,7 @@ export class PerfexCRMClient {
 
   // Get lead by ID
   async getLead(id: string): Promise<PerfexCRMLead> {
-    const endpoints = [`/api/v1/leads/${id}`, `/v1/leads/${id}`];
+    const endpoints = [`/api/leads/${id}`, `/api/v1/leads/${id}`, `/v1/leads/${id}`];
     let lastError: Error | null = null;
     for (const endpoint of endpoints) {
       try {
@@ -386,8 +389,10 @@ export class PerfexCRMClient {
   async getStatistics(): Promise<Record<string, unknown>> {
     // Try statistics endpoint first with different variations
     const statEndpoints = [
+      "/api/dashboard/statistics",
       "/api/v1/dashboard/statistics",
       "/v1/dashboard/statistics",
+      "/api/statistics",
       "/api/v1/statistics",
       "/v1/statistics",
     ];
