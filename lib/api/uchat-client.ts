@@ -15,8 +15,14 @@ export class UchatClient {
 
   constructor(config: UchatConfig) {
     this.config = config;
+    // Uchat API URL might or might not include /api, so we'll handle both cases
+    // If baseURL ends with /api, we don't add /api prefix to endpoints
+    const baseURL = config.apiUrl.endsWith('/api') 
+      ? config.apiUrl 
+      : config.apiUrl;
+    
     this.client = axios.create({
-      baseURL: config.apiUrl,
+      baseURL: baseURL,
       headers: {
         "Content-Type": "application/json",
         "X-API-Key": config.apiKey,
@@ -136,7 +142,8 @@ export class UchatClient {
     if (params?.offset) queryParams.append("offset", params.offset.toString());
     if (params?.status) queryParams.append("status", params.status);
 
-    // Remove /api prefix since baseURL already includes it (if needed)
+    // If baseURL ends with /api, don't add /api prefix again
+    // Uchat baseURL is https://www.uchat.com.au/api, so endpoints should be relative
     const endpoint = `/chats${queryParams.toString() ? `?${queryParams}` : ""}`;
     return this.get<UchatChat[]>(endpoint);
   }
