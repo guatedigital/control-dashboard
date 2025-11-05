@@ -184,6 +184,10 @@ export default function DashboardPage() {
         perfexcrm: result.data.perfexcrm || {},
         uchat: result.data.uchat || {},
         date: result.date,
+        errors: {
+          perfexcrm: result.data.perfexcrm ? null : "No data available for this date",
+          uchat: result.data.uchat ? null : "No data available for this date",
+        },
       };
     }
   };
@@ -275,7 +279,7 @@ export default function DashboardPage() {
 
   const perfexcrm = data?.perfexcrm || {};
   const uchat = data?.uchat || {};
-  const errors = data?.errors;
+  const errors = data?.errors || { perfexcrm: null, uchat: null };
 
   // Prioritize fresh API data over cached real-time insights
   // Only use real-time insights if API data is not available
