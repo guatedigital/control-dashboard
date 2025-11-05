@@ -39,7 +39,9 @@ async function fetchDashboardData() {
         console.error("[Dashboard] PerfexCRM fetch error:", err);
         throw err;
       }),
-      fetch("/api/uchat?endpoint=statistics", {
+      // Fetch Uchat statistics with last_7_days range to get current data (includes today)
+      // Available range options: 'yesterday', 'last_7_days', 'last_week', 'last_30_days', 'last_month', 'last_3_months'
+      fetch("/api/uchat?endpoint=statistics&range=last_7_days", {
         signal: controller.signal,
         headers: {
           "Authorization": `Bearer ${session.access_token}`,

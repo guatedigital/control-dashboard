@@ -244,13 +244,33 @@ export class UchatClient {
   }
 
   // Get chat statistics
-  async getStatistics(): Promise<Record<string, unknown>> {
+  // Note: flow-summary accepts 'range' parameter (default is 'yesterday' if not specified)
+  // Available ranges: 'yesterday', 'last_7_days', 'last_week', 'last_30_days', 'last_month', 'last_3_months'
+  // If no range is specified, the API defaults to 'yesterday' which may show stale data
+  async getStatistics(params?: {
+    range?: string; // Optional: date range for statistics. Options: 'yesterday', 'last_7_days', 'last_week', 'last_30_days', 'last_month', 'last_3_months'
+    flow_ns?: string; // Optional: filter by specific bot flow namespace (e.g., 'f45936')
+  }): Promise<Record<string, unknown>> {
     try {
+      // Only add range parameter if explicitly provided
+      // If not provided, API will use its default (which is 'yesterday')
+      const range = params?.range;
+      
+      // Build query parameters
+      const queryParams = new URLSearchParams();
+      if (range) {
+        queryParams.append("range", range);
+      }
+      if (params?.flow_ns) {
+        queryParams.append("flow_ns", params.flow_ns);
+      }
+      const queryString = queryParams.toString() ? `?${queryParams}` : "";
+      
       // Try to get flow summary which contains analytics
       // The get() method extracts the 'data' property, so we get the array directly
       // Response structure from API: { data: [{ total_bot_users, day_active_bot_users, ... }], status: "ok" }
       // After get() extraction: [{ total_bot_users, day_active_bot_users, ... }]
-      const flowSummaryArray = await this.get<any[]>("/flow-summary");
+      const flowSummaryArray = await this.get<any[]>(`/flow-summary${queryString}`);
       
       // Extract the first summary item from the data array
       const flowSummary = Array.isArray(flowSummaryArray) && flowSummaryArray.length > 0
@@ -260,10 +280,10 @@ export class UchatClient {
       console.log("[Uchat] Flow summary data:", flowSummary);
       console.log("[Uchat] Flow summary array:", flowSummaryArray);
       
-      // Also try flow-agent-summary for additional metrics
+      // Also try flow-agent-summary for additional metrics (with same range parameters)
       let flowAgentSummary: Record<string, unknown> | null = null;
       try {
-        const agentSummaryArray = await this.get<any[]>("/flow-agent-summary");
+        const agentSummaryArray = await this.get<any[]>(`/flow-agent-summary${queryString}`);
         flowAgentSummary = Array.isArray(agentSummaryArray) && agentSummaryArray.length > 0
           ? agentSummaryArray[0]
           : (agentSummaryArray as any);

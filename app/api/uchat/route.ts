@@ -62,7 +62,12 @@ async function handleGet(request: NextRequest) {
           { status: 404 }
         );
       case "statistics":
-        data = await client.getStatistics();
+        // Allow range and flow_ns parameters to be passed
+        // Available range options: 'yesterday' (API default), 'last_7_days', 'last_week', 'last_30_days', 'last_month', 'last_3_months'
+        // If range is not specified, API defaults to 'yesterday'
+        const range = searchParams.get("range") || undefined;
+        const flowNs = searchParams.get("flow_ns") || undefined;
+        data = await client.getStatistics({ range, flow_ns: flowNs });
         break;
       case "agent-activity-log":
       case "agent-activity":
