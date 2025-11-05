@@ -144,8 +144,9 @@ export class DataSyncService {
       // Get current date in YYYY-MM-DD format for daily metrics storage
       const today = new Date().toISOString().split('T')[0];
 
-      // Fetch statistics
-      const statistics = await client.getStatistics();
+      // Fetch statistics with last_7_days range to get current data (includes today)
+      // This matches what the dashboard uses for consistency
+      const statistics = await client.getStatistics({ range: "last_7_days" });
 
       // Store in Supabase with date to preserve daily values
       // This allows tracking historical data per day instead of overwriting

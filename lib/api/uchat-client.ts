@@ -399,12 +399,17 @@ export class UchatClient {
       // flow-summary provides: total_bot_users, day_active_bot_users, day_new_bot_users, day_total_messages, 
       // day_in_messages, day_out_messages, day_agent_messages, day_assigned, day_done, avg_agent_response_time, avg_resolve_time
       console.log("[Uchat] Mapping statistics:", {
+        range: params?.range || "default (yesterday)",
         total_bot_users: flowSummary?.total_bot_users,
         day_active_bot_users: flowSummary?.day_active_bot_users,
         day_new_bot_users: flowSummary?.day_new_bot_users,
         day_total_messages: flowSummary?.day_total_messages,
+        day_assigned: flowSummary?.day_assigned,
+        day_done: flowSummary?.day_done,
         avg_agent_response_time: flowSummary?.avg_agent_response_time,
+        avg_resolve_time: flowSummary?.avg_resolve_time,
         number_of_opens: totalOpens,
+        fullFlowSummary: JSON.stringify(flowSummary).substring(0, 500),
       });
       
       return {
