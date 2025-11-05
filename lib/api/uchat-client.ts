@@ -128,7 +128,7 @@ export class UchatClient {
         const response = await this.client.get<UchatResponse<T>>(endpoint);
         
         console.log(`[Uchat] Response status: ${response.status}`);
-        console.log(`[Uchat] Response data:`, JSON.stringify(response.data).substring(0, 500));
+        console.log(`[Uchat] Response data (raw):`, JSON.stringify(response.data).substring(0, 500));
         
         // Handle different response formats
         if (response.data && typeof response.data === 'object') {
@@ -138,7 +138,17 @@ export class UchatClient {
           }
           // If response has data property
           if ('data' in response.data) {
-            return (response.data as { data: T }).data;
+            const extracted = (response.data as { data: T }).data;
+            console.log(`[Uchat] Extracted data property:`, {
+              type: typeof extracted,
+              isArray: Array.isArray(extracted),
+              sample: Array.isArray(extracted) && extracted.length > 0
+                ? JSON.stringify(extracted[0]).substring(0, 200)
+                : typeof extracted === 'object'
+                ? JSON.stringify(extracted).substring(0, 200)
+                : String(extracted).substring(0, 200),
+            });
+            return extracted;
           }
           // If response is directly the data
           return response.data as T;
@@ -191,6 +201,21 @@ export class UchatClient {
     
     try {
       const result = await this.get<any>(endpoint);
+      
+      // Debug: Log raw result structure
+      console.log("[Uchat] Raw conversations data result:", {
+        type: typeof result,
+        isArray: Array.isArray(result),
+        isObject: result && typeof result === 'object',
+        keys: result && typeof result === 'object' && !Array.isArray(result) ? Object.keys(result) : 'N/A',
+        length: Array.isArray(result) ? result.length : 'N/A',
+        sample: Array.isArray(result) && result.length > 0
+          ? JSON.stringify(result[0]).substring(0, 200)
+          : result && typeof result === 'object'
+          ? JSON.stringify(result).substring(0, 200)
+          : String(result).substring(0, 200),
+      });
+      
       // Normalize response to always return an array
       // Handle both array and single object responses
       if (Array.isArray(result)) {
@@ -305,21 +330,68 @@ export class UchatClient {
       let conversationsData: any[] = [];
       let totalOpens = 0;
       try {
+        // Fetch conversations - try with a larger limit first
+        // Note: The API might return paginated results, so we fetch as many as possible
         const conversationsResponse = await this.getConversationsData({ limit: 1000 });
         conversationsData = conversationsResponse;
         
+        // Debug: Log the structure of the conversations data
+        console.log("[Uchat] Conversations response structure:", {
+          isArray: Array.isArray(conversationsResponse),
+          length: Array.isArray(conversationsResponse) ? conversationsResponse.length : 'N/A',
+          firstItem: Array.isArray(conversationsResponse) && conversationsResponse.length > 0 
+            ? Object.keys(conversationsResponse[0]) 
+            : conversationsResponse && typeof conversationsResponse === 'object'
+            ? Object.keys(conversationsResponse)
+            : [],
+          sampleData: Array.isArray(conversationsResponse) && conversationsResponse.length > 0
+            ? JSON.stringify(conversationsResponse[0]).substring(0, 300)
+            : conversationsResponse && typeof conversationsResponse === 'object'
+            ? JSON.stringify(conversationsResponse).substring(0, 300)
+            : String(conversationsResponse).substring(0, 300),
+        });
+        
         // Calculate total number_of_opens from all conversations
-        // getConversationsData always returns an array, so we can safely iterate
-        totalOpens = conversationsResponse.reduce((sum: number, conv: any) => {
-          // Handle different response structures:
-          // 1. Direct object with number_of_opens: { number_of_opens: 0, ... }
-          // 2. Object with nested data: { data: { number_of_opens: 0, ... } }
-          const opens = conv?.number_of_opens ?? conv?.data?.number_of_opens ?? 0;
-          return sum + (typeof opens === 'number' ? opens : 0);
-        }, 0);
+        // Handle both array and single object responses
+        if (Array.isArray(conversationsResponse)) {
+          totalOpens = conversationsResponse.reduce((sum: number, conv: any, index: number) => {
+            // Handle different response structures:
+            // 1. Direct object with number_of_opens: { number_of_opens: 0, ... }
+            // 2. Object with nested data: { data: { number_of_opens: 0, ... } }
+            const opens = conv?.number_of_opens ?? conv?.data?.number_of_opens ?? 0;
+            const opensValue = typeof opens === 'number' ? opens : 0;
+            
+            // Debug: Log first few conversations
+            if (index < 3) {
+              console.log(`[Uchat] Conversation ${index}:`, { 
+                convKeys: Object.keys(conv || {}), 
+                hasNumber_of_opens: 'number_of_opens' in (conv || {}),
+                hasData: 'data' in (conv || {}),
+                number_of_opens: conv?.number_of_opens,
+                data_number_of_opens: conv?.data?.number_of_opens,
+                extractedValue: opensValue 
+              });
+            }
+            
+            return sum + opensValue;
+          }, 0);
+        } else if (conversationsResponse && typeof conversationsResponse === 'object') {
+          // Single conversation object
+          const opens = conversationsResponse?.number_of_opens ?? conversationsResponse?.data?.number_of_opens ?? 0;
+          totalOpens = typeof opens === 'number' ? opens : 0;
+          console.log("[Uchat] Single conversation object:", {
+            keys: Object.keys(conversationsResponse),
+            number_of_opens: conversationsResponse?.number_of_opens,
+            data_number_of_opens: conversationsResponse?.data?.number_of_opens,
+            extractedValue: totalOpens,
+          });
+        }
+        
+        console.log("[Uchat] Total number_of_opens calculated:", totalOpens, "from", 
+          Array.isArray(conversationsResponse) ? conversationsResponse.length : 1, "conversation(s)");
       } catch (e) {
         // Ignore if not available
-        console.log("[Uchat] Conversations data not available");
+        console.log("[Uchat] Conversations data not available:", e);
       }
 
       // Map the flow summary data to dashboard format

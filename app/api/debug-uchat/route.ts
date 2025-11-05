@@ -55,6 +55,34 @@ async function handleDebug(request: NextRequest) {
   // Test 2: Conversations endpoint
   try {
     const result = await client.getConversationsData({ limit: 10 });
+    
+    // Calculate number_of_opens to test the extraction logic
+    let totalOpens = 0;
+    let opensDetails: any[] = [];
+    
+    if (Array.isArray(result)) {
+      totalOpens = result.reduce((sum: number, conv: any, index: number) => {
+        const opens = conv?.number_of_opens ?? conv?.data?.number_of_opens ?? 0;
+        const opensValue = typeof opens === 'number' ? opens : 0;
+        
+        // Store details for first few conversations
+        if (index < 3) {
+          opensDetails.push({
+            index,
+            convKeys: Object.keys(conv || {}),
+            hasNumber_of_opens: 'number_of_opens' in (conv || {}),
+            hasData: 'data' in (conv || {}),
+            number_of_opens: conv?.number_of_opens,
+            data_number_of_opens: conv?.data?.number_of_opens,
+            extractedValue: opensValue,
+            fullConv: conv,
+          });
+        }
+        
+        return sum + opensValue;
+      }, 0);
+    }
+    
     tests.push({
       endpoint: "conversations",
       method: "getConversationsData({ limit: 10 })",
@@ -62,6 +90,11 @@ async function handleDebug(request: NextRequest) {
       dataType: Array.isArray(result) ? "array" : typeof result,
       dataLength: Array.isArray(result) ? result.length : "N/A",
       sampleData: Array.isArray(result) && result.length > 0 ? result[0] : result,
+      number_of_opens: {
+        total: totalOpens,
+        calculation: `Sum of number_of_opens from ${Array.isArray(result) ? result.length : 0} conversations`,
+        details: opensDetails,
+      },
     });
   } catch (error: any) {
     tests.push({
