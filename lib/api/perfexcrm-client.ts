@@ -146,13 +146,13 @@ export class PerfexCRMClient {
       console.log(`[PerfexCRM] Requesting: ${fullUrl}`);
       
       try {
-        const response = await this.client.get<PerfexCRMResponse<T>>(endpoint);
+        const response = await this.client.get<PerfexCRMResponse<T> | string>(endpoint);
         
         console.log(`[PerfexCRM] Response status: ${response.status}`);
         
         // Check if response is HTML (Cloudflare challenge or error page)
         const contentType = response.headers['content-type'] || '';
-        let responseData = response.data;
+        let responseData: unknown = response.data;
         
         // If response.data is a string, check if it's HTML
         if (typeof responseData === 'string') {
@@ -198,8 +198,8 @@ export class PerfexCRMClient {
         // Handle different response formats
         if (responseData && typeof responseData === 'object') {
           // If response has success property
-          if ('success' in responseData && responseData.success === false) {
-            throw new Error((responseData as { message?: string }).message || "Request failed");
+          if ('success' in responseData && (responseData as { success?: boolean }).success === false) {
+            throw new Error(((responseData as { message?: string }).message) || "Request failed");
           }
           // If response has data property
           if ('data' in responseData) {
