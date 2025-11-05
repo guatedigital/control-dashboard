@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getRateLimitIdentifier, RateLimitPresets, RateLimitResult } from "./rate-limit";
 import { verifyAuth } from "@/lib/auth/verify-auth";
 
+// Re-export RateLimitPresets for convenience
+export { RateLimitPresets } from "./rate-limit";
+
 export interface RateLimitConfig {
   windowMs: number;
   maxRequests: number;
