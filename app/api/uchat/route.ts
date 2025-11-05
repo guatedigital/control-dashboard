@@ -91,10 +91,10 @@ async function handleGet(request: NextRequest) {
             { status: 400 }
           );
         }
-        const range = searchParams.get("range") || undefined;
+        const eventsRange = searchParams.get("range") || undefined;
         data = await client.getCustomEventsSummary({
           event_ns: eventNs,
-          range: range,
+          range: eventsRange,
         });
         break;
       case "custom-events":
