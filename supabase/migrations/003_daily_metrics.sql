@@ -38,3 +38,4 @@ CREATE INDEX IF NOT EXISTS idx_perfexcrm_metrics_type_date ON perfexcrm_metrics(
 -- For aggregated_insights, we can keep the current structure since it's meant to be the latest
 -- But if needed, we could add date tracking here too
 
+

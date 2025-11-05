@@ -375,14 +375,15 @@ export class UchatClient {
             
             return sum + opensValue;
           }, 0);
-        } else if (conversationsResponse && typeof conversationsResponse === 'object') {
+        } else if (conversationsResponse && typeof conversationsResponse === 'object' && !Array.isArray(conversationsResponse)) {
           // Single conversation object
-          const opens = conversationsResponse?.number_of_opens ?? conversationsResponse?.data?.number_of_opens ?? 0;
+          const convObj = conversationsResponse as any;
+          const opens = convObj?.number_of_opens ?? convObj?.data?.number_of_opens ?? 0;
           totalOpens = typeof opens === 'number' ? opens : 0;
           console.log("[Uchat] Single conversation object:", {
-            keys: Object.keys(conversationsResponse),
-            number_of_opens: conversationsResponse?.number_of_opens,
-            data_number_of_opens: conversationsResponse?.data?.number_of_opens,
+            keys: Object.keys(convObj),
+            number_of_opens: convObj?.number_of_opens,
+            data_number_of_opens: convObj?.data?.number_of_opens,
             extractedValue: totalOpens,
           });
         }
