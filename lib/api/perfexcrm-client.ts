@@ -15,10 +15,13 @@ export class PerfexCRMClient {
 
   constructor(config: PerfexCRMConfig) {
     this.config = config;
+    // Normalize baseURL - remove trailing /api if present to avoid double /api/api
+    const baseURL = config.apiUrl.replace(/\/api\/?$/, ''); // Remove trailing /api
+    
     // PerfexCRM uses X-API-KEY header for authentication
     // Add browser-like headers to bypass Cloudflare protection
     this.client = axios.create({
-      baseURL: config.apiUrl,
+      baseURL: baseURL,
       headers: {
         "Content-Type": "application/json",
         "X-API-KEY": config.apiKey,
@@ -26,8 +29,8 @@ export class PerfexCRMClient {
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
-        "Referer": config.apiUrl.replace("/api", ""),
-        "Origin": config.apiUrl.replace("/api", ""),
+        "Referer": baseURL,
+        "Origin": baseURL,
       },
       timeout: 30000,
     });
