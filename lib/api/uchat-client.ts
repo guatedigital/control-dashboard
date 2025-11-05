@@ -232,42 +232,59 @@ export class UchatClient {
   async getStatistics(): Promise<Record<string, unknown>> {
     try {
       // Try to get flow summary which contains analytics
-      const flowSummary = await this.get<Record<string, unknown>>("/flow-summary");
+      // Response structure: { data: [{ total_bot_users, day_active_bot_users, ... }], status: "ok" }
+      const flowSummaryResponse = await this.get<{ data?: any[]; status?: string }>("/flow-summary");
+      
+      // Extract the first summary item from the data array
+      const flowSummary = Array.isArray(flowSummaryResponse.data) && flowSummaryResponse.data.length > 0
+        ? flowSummaryResponse.data[0]
+        : (flowSummaryResponse as any);
+      
+      console.log("[Uchat] Flow summary data:", flowSummary);
       
       // Also try flow-agent-summary for additional metrics
       let flowAgentSummary: Record<string, unknown> | null = null;
       try {
-        flowAgentSummary = await this.get<Record<string, unknown>>("/flow-agent-summary");
+        const agentSummaryResponse = await this.get<{ data?: any[] }>("/flow-agent-summary");
+        flowAgentSummary = Array.isArray(agentSummaryResponse.data) && agentSummaryResponse.data.length > 0
+          ? agentSummaryResponse.data[0]
+          : (agentSummaryResponse as any);
       } catch (e) {
         // Ignore if not available
+        console.log("[Uchat] Flow agent summary not available");
       }
 
-      // Get conversations data for chat counts
+      // Get conversations data for chat counts (optional, as we can use flow summary data)
       let conversationsData: any[] = [];
       try {
-        conversationsData = await this.getConversationsData({ limit: 1000 });
+        const conversationsResponse = await this.getConversationsData({ limit: 1000 });
+        conversationsData = Array.isArray(conversationsResponse) ? conversationsResponse : [];
       } catch (e) {
         // Ignore if not available
+        console.log("[Uchat] Conversations data not available");
       }
 
+      // Map the flow summary data to dashboard format
+      // flow-summary provides: total_bot_users, day_active_bot_users, day_total_messages, avg_agent_response_time, avg_resolve_time
       return {
-        total_chats: conversationsData.length || flowSummary.total_conversations || 0,
-        active_chats: conversationsData.filter((c: any) => c.status === 'active').length || 0,
-        average_response_time: flowSummary.average_response_time || flowAgentSummary?.average_response_time || 0,
-        satisfaction_score: flowSummary.satisfaction_score || flowAgentSummary?.satisfaction_score || 0,
+        total_chats: flowSummary.total_bot_users || conversationsData.length || 0,
+        active_chats: flowSummary.day_active_bot_users || conversationsData.filter((c: any) => c.status === 'active').length || 0,
+        average_response_time: flowSummary.avg_agent_response_time || flowAgentSummary?.avg_agent_response_time || 0,
+        satisfaction_score: 0, // Not available in flow-summary, would need separate endpoint
       };
     } catch (error) {
+      console.error("[Uchat] Failed to get statistics:", error);
       // Fallback: try to get conversations data directly
       try {
         const conversations = await this.getConversationsData({ limit: 100 });
         return {
-          total_chats: conversations.length,
-          active_chats: conversations.filter((c: any) => c.status === 'active').length || 0,
+          total_chats: Array.isArray(conversations) ? conversations.length : 0,
+          active_chats: Array.isArray(conversations) ? conversations.filter((c: any) => c.status === 'active').length : 0,
           average_response_time: 0,
           satisfaction_score: 0,
         };
       } catch (fallbackError) {
-        console.error("[Uchat] Failed to get statistics:", fallbackError);
+        console.error("[Uchat] Fallback also failed:", fallbackError);
         // Return empty statistics
         return {
           total_chats: 0,
