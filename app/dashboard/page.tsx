@@ -10,20 +10,31 @@ import { useRealtimeData } from "@/lib/hooks/use-realtime-data";
 async function fetchDashboardData() {
   // Create abort controller for timeout
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  const timeoutId = setTimeout(() => {
+    console.error("[Dashboard] Request timeout after 30 seconds");
+    controller.abort();
+  }, 30000); // 30 second timeout
 
   try {
+    console.log("[Dashboard] Starting API requests...");
     // Fetch both APIs in parallel, but don't fail if one fails
     const [perfexcrmRes, uchatRes] = await Promise.allSettled([
       fetch("/api/perfexcrm?endpoint=statistics", {
         signal: controller.signal,
+      }).catch(err => {
+        console.error("[Dashboard] PerfexCRM fetch error:", err);
+        throw err;
       }),
       fetch("/api/uchat?endpoint=statistics", {
         signal: controller.signal,
+      }).catch(err => {
+        console.error("[Dashboard] Uchat fetch error:", err);
+        throw err;
       }),
     ]);
 
     clearTimeout(timeoutId);
+    console.log("[Dashboard] API requests completed");
 
     // Process PerfexCRM response
     let perfexcrm = {};
@@ -116,13 +127,19 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const { aggregatedInsights } = useRealtimeData();
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, isError } = useQuery({
     queryKey: ["dashboard-data"],
     queryFn: fetchDashboardData,
     refetchInterval: 60000, // Refetch every 60 seconds
     retry: 1, // Only retry once on failure
     retryDelay: 2000, // Wait 2 seconds before retry
+    staleTime: 30000, // Consider data fresh for 30 seconds
   });
+
+  // Log query state for debugging
+  useEffect(() => {
+    console.log("[Dashboard] Query state:", { isLoading, isError, hasData: !!data, hasError: !!error });
+  }, [isLoading, isError, data, error]);
 
   useEffect(() => {
     if (data) {
@@ -155,6 +172,9 @@ export default function DashboardPage() {
           <div className="text-muted-foreground">Loading dashboard...</div>
           <div className="text-sm text-muted-foreground">
             Fetching data from PerfexCRM and Uchat APIs
+          </div>
+          <div className="text-xs text-muted-foreground mt-2">
+            This may take up to 30 seconds. Check browser console (F12) for details.
           </div>
         </div>
       </div>
