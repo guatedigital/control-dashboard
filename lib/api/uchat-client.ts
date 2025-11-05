@@ -306,13 +306,35 @@ export class UchatClient {
       // After get() extraction: [{ total_bot_users, day_active_bot_users, ... }]
       const flowSummaryArray = await this.get<any[]>(`/flow-summary${queryString}`);
       
-      // Extract the first summary item from the data array
-      const flowSummary = Array.isArray(flowSummaryArray) && flowSummaryArray.length > 0
-        ? flowSummaryArray[0]
-        : (flowSummaryArray as any);
+      // For ranges like 'last_7_days', the API returns an array of daily summaries
+      // We need to find today's data (most recent date) instead of just taking the first item
+      let flowSummary: any;
+      if (Array.isArray(flowSummaryArray) && flowSummaryArray.length > 0) {
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Try to find today's data first
+        flowSummary = flowSummaryArray.find((item: any) => item.summary_date === today);
+        
+        // If today's data not found, find the most recent date (last item, as API typically returns sorted)
+        if (!flowSummary) {
+          // Sort by summary_date descending to get most recent
+          const sorted = [...flowSummaryArray].sort((a: any, b: any) => {
+            const dateA = a.summary_date || '';
+            const dateB = b.summary_date || '';
+            return dateB.localeCompare(dateA);
+          });
+          flowSummary = sorted[0];
+          console.log("[Uchat] Today's data not found, using most recent date:", flowSummary?.summary_date);
+        } else {
+          console.log("[Uchat] Using today's data:", flowSummary.summary_date);
+        }
+      } else {
+        flowSummary = flowSummaryArray as any;
+      }
       
       console.log("[Uchat] Flow summary data:", flowSummary);
-      console.log("[Uchat] Flow summary array:", flowSummaryArray);
+      console.log("[Uchat] Flow summary array length:", Array.isArray(flowSummaryArray) ? flowSummaryArray.length : 'N/A');
       
       // Also try flow-agent-summary for additional metrics (with same range parameters)
       let flowAgentSummary: Record<string, unknown> | null = null;
