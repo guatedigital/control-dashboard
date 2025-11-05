@@ -22,25 +22,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      checkAuthorization(session?.user);
-      setLoading(false);
-    });
+    let isMounted = true;
+    
+    // Get initial session with timeout
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Check authorization with timeout (don't block loading state)
+        const authPromise = checkAuthorization(session?.user);
+        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 5000)); // 5 second timeout
+        
+        Promise.race([authPromise, timeoutPromise]).finally(() => {
+          if (isMounted) {
+            setLoading(false);
+          }
+        });
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    initAuth();
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted) return;
+      
       setSession(session);
       setUser(session?.user ?? null);
-      await checkAuthorization(session?.user);
-      setLoading(false);
+      
+      // Check authorization with timeout
+      const authPromise = checkAuthorization(session?.user);
+      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 5000));
+      
+      Promise.race([authPromise, timeoutPromise]).finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const checkAuthorization = async (user: User | null | undefined) => {
@@ -50,26 +85,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Get the session token
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get the session token with timeout
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Session check timeout")), 3000)
+      );
+      
+      const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
       
       if (!session?.access_token) {
         setIsAuthorized(false);
         return;
       }
 
-      // Check authorization via API route
-      const response = await fetch("/api/auth/check", {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      const result = await response.json();
+      // Check authorization via API route with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      if (result.authorized) {
-        setIsAuthorized(true);
-      } else {
+      try {
+        const response = await fetch("/api/auth/check", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        const result = await response.json();
+        
+        if (result.authorized) {
+          setIsAuthorized(true);
+        } else {
+          setIsAuthorized(false);
+        }
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.warn("Authorization check timeout");
+        } else {
+          console.error("Authorization check error:", fetchError);
+        }
         setIsAuthorized(false);
       }
     } catch (error) {
