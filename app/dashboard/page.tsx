@@ -238,12 +238,12 @@ export default function DashboardPage() {
   );
 
   // Use API data if available (fresh), otherwise fall back to real-time insights
-  const perfexcrmData = Object.keys(perfexcrm || {}).length > 0 
-    ? perfexcrm 
+  const perfexcrmData: Record<string, unknown> = Object.keys(perfexcrm || {}).length > 0 
+    ? perfexcrm as Record<string, unknown>
     : (perfexcrmInsight?.insight_value as Record<string, unknown> || {});
   
-  const uchatData = Object.keys(uchat || {}).length > 0 
-    ? uchat 
+  const uchatData: Record<string, unknown> = Object.keys(uchat || {}).length > 0 
+    ? uchat as Record<string, unknown>
     : (uchatInsight?.insight_value as Record<string, unknown> || {});
 
   return (
