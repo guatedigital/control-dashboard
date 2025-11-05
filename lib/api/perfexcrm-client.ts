@@ -145,35 +145,79 @@ export class PerfexCRMClient {
       const fullUrl = `${this.config.apiUrl}${endpoint}`;
       console.log(`[PerfexCRM] Requesting: ${fullUrl}`);
       
-      const response = await this.client.get<PerfexCRMResponse<T>>(endpoint);
-      
-      console.log(`[PerfexCRM] Response status: ${response.status}`);
-      
-      // Check if response is HTML (Cloudflare challenge)
-      const contentType = response.headers['content-type'] || '';
-      const responseText = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-      
-      if (contentType.includes('text/html') || responseText.includes('Just a moment') || responseText.includes('cf-challenge')) {
-        throw new Error("PerfexCRM: Cloudflare protection is blocking the request. Please check:\n1. IP restrictions in Cloudflare\n2. Firewall rules\n3. Consider using a different API endpoint or whitelisting Vercel IPs");
-      }
-      
-      console.log(`[PerfexCRM] Response data:`, responseText.substring(0, 500));
-      
-      // Handle different response formats
-      if (response.data && typeof response.data === 'object') {
-        // If response has success property
-        if ('success' in response.data && response.data.success === false) {
-          throw new Error((response.data as { message?: string }).message || "Request failed");
+      try {
+        const response = await this.client.get<PerfexCRMResponse<T>>(endpoint);
+        
+        console.log(`[PerfexCRM] Response status: ${response.status}`);
+        
+        // Check if response is HTML (Cloudflare challenge or error page)
+        const contentType = response.headers['content-type'] || '';
+        let responseData = response.data;
+        
+        // If response.data is a string, check if it's HTML
+        if (typeof responseData === 'string') {
+          const responseText = responseData.trim();
+          
+          // Check for HTML indicators
+          const isHTML = contentType.includes('text/html') || 
+                         responseText.toLowerCase().startsWith('<!doctype') ||
+                         responseText.toLowerCase().startsWith('<html') ||
+                         responseText.includes('Just a moment') || 
+                         responseText.includes('cf-challenge') ||
+                         responseText.includes('<head>') ||
+                         responseText.includes('<body>');
+          
+          if (isHTML) {
+            const error = new Error("PerfexCRM: Received HTML response instead of JSON. This usually means:\n1. Cloudflare is blocking the request (check IP restrictions)\n2. The API endpoint is incorrect\n3. Bot protection is enabled\n\nPlease check your Cloudflare settings and ensure the API endpoint is accessible.") as Error & { statusCode?: number; isCloudflareChallenge?: boolean };
+            error.statusCode = 403;
+            error.isCloudflareChallenge = true;
+            throw error;
+          }
+          
+          // Try to parse as JSON
+          try {
+            responseData = JSON.parse(responseData);
+          } catch (parseError) {
+            const error = new Error(`PerfexCRM: Invalid response format. Expected JSON but received: ${contentType || 'unknown format'}`) as Error & { statusCode?: number };
+            error.statusCode = 500;
+            throw error;
+          }
         }
-        // If response has data property
-        if ('data' in response.data) {
-          return (response.data as { data: T }).data;
+        
+        // Check if parsed data is HTML (in case axios parsed it as object but it's actually HTML)
+        const dataString = JSON.stringify(responseData);
+        if (dataString.includes('<!doctype') || dataString.includes('<html') || dataString.includes('<head>')) {
+          const error = new Error("PerfexCRM: Received HTML response instead of JSON. Cloudflare may be blocking the request.") as Error & { statusCode?: number; isCloudflareChallenge?: boolean };
+          error.statusCode = 403;
+          error.isCloudflareChallenge = true;
+          throw error;
         }
-        // If response is directly the data
-        return response.data as T;
+        
+        console.log(`[PerfexCRM] Response data:`, dataString.substring(0, 500));
+        
+        // Handle different response formats
+        if (responseData && typeof responseData === 'object') {
+          // If response has success property
+          if ('success' in responseData && responseData.success === false) {
+            throw new Error((responseData as { message?: string }).message || "Request failed");
+          }
+          // If response has data property
+          if ('data' in responseData) {
+            return (responseData as { data: T }).data;
+          }
+          // If response is directly the data
+          return responseData as T;
+        }
+        
+        return responseData as T;
+      } catch (error) {
+        // Re-throw if it's already our custom error
+        if (error instanceof Error && 'statusCode' in error) {
+          throw error;
+        }
+        // Otherwise, let the error handler process it
+        throw error;
       }
-      
-      return response.data as T;
     });
   }
 

@@ -1,8 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/lib/providers/auth-provider";
+import { useRouter } from "next/navigation";
 
 interface DashboardHeaderProps {
   onRefresh?: () => void;
@@ -14,6 +16,8 @@ export function DashboardHeader({
   lastUpdated,
 }: DashboardHeaderProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { signOut, user } = useAuth();
+  const router = useRouter();
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -31,6 +35,11 @@ export function DashboardHeader({
     }
   };
 
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/login");
+  };
+
   return (
     <div className="flex items-center justify-between mb-6">
       <div>
@@ -40,6 +49,11 @@ export function DashboardHeader({
         </p>
       </div>
       <div className="flex items-center gap-4">
+        {user && (
+          <span className="text-sm text-muted-foreground">
+            {user.email}
+          </span>
+        )}
         {lastUpdated && (
           <span className="text-sm text-muted-foreground">
             Last updated: {lastUpdated.toLocaleTimeString()}
@@ -50,10 +64,19 @@ export function DashboardHeader({
           disabled={isRefreshing}
           variant="outline"
           size="icon"
+          title="Refresh data"
         >
           <RefreshCw
             className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
           />
+        </Button>
+        <Button
+          onClick={handleSignOut}
+          variant="outline"
+          size="icon"
+          title="Sign out"
+        >
+          <LogOut className="h-4 w-4" />
         </Button>
       </div>
     </div>

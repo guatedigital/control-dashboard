@@ -19,7 +19,15 @@ async function fetchDashboardData() {
   // Check for errors
   if (!perfexcrmRes.ok || !perfexcrm.success) {
     console.error("PerfexCRM error:", perfexcrm);
-    throw new Error(perfexcrm.error || "Failed to fetch PerfexCRM data");
+    // Extract error message, truncate if it's HTML
+    let errorMessage = perfexcrm.error || "Failed to fetch PerfexCRM data";
+    
+    // If error message contains HTML, replace with a cleaner message
+    if (errorMessage.includes("<!doctype") || errorMessage.includes("<html")) {
+      errorMessage = "PerfexCRM: Received HTML response instead of JSON. This usually means Cloudflare is blocking the request. Please check:\n1. IP restrictions in Cloudflare\n2. Bot protection settings\n3. API endpoint accessibility";
+    }
+    
+    throw new Error(errorMessage);
   }
 
   if (!uchatRes.ok || !uchat.success) {
