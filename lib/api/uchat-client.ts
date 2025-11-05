@@ -288,8 +288,8 @@ export class UchatClient {
       });
       
       return {
-        total_chats: flowSummary?.total_bot_users ?? flowSummary?.total_bot_users ?? (conversationsData.length > 0 ? conversationsData.length : 0),
-        active_chats: flowSummary?.day_active_bot_users ?? flowSummary?.day_active_bot_users ?? (conversationsData.length > 0 ? conversationsData.filter((c: any) => c.status === 'active').length : 0),
+        total_chats: flowSummary?.total_bot_users ?? (conversationsData.length > 0 ? conversationsData.length : 0),
+        active_chats: flowSummary?.day_active_bot_users ?? (conversationsData.length > 0 ? conversationsData.filter((c: any) => c.status === 'active').length : 0),
         average_response_time: flowSummary?.avg_agent_response_time ?? flowAgentSummary?.avg_agent_response_time ?? 0,
         satisfaction_score: 0, // Not available in flow-summary, would need separate endpoint
       };
