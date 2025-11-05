@@ -40,14 +40,21 @@ export class DataSyncService {
     try {
       const client = new PerfexCRMClient(perfexcrmConfig);
 
+      // Get current date in YYYY-MM-DD format for daily metrics storage
+      const today = new Date().toISOString().split('T')[0];
+
       // Fetch statistics
       const statistics = await client.getStatistics();
 
-      // Store in Supabase
+      // Store in Supabase with date to preserve daily values
+      // This allows tracking historical data per day instead of overwriting
       await supabaseAdmin.from("perfexcrm_metrics").upsert({
         metric_type: "statistics",
         metric_key: "dashboard",
+        metric_date: today,
         metric_value: statistics,
+      }, {
+        onConflict: "metric_type,metric_key,metric_date"
       });
 
       // Fetch and store customers
@@ -55,7 +62,10 @@ export class DataSyncService {
       await supabaseAdmin.from("perfexcrm_metrics").upsert({
         metric_type: "customers",
         metric_key: "total",
+        metric_date: today,
         metric_value: { count: customers.length, data: customers },
+      }, {
+        onConflict: "metric_type,metric_key,metric_date"
       });
 
       // Fetch and store invoices
@@ -67,11 +77,14 @@ export class DataSyncService {
       await supabaseAdmin.from("perfexcrm_metrics").upsert({
         metric_type: "invoices",
         metric_key: "summary",
+        metric_date: today,
         metric_value: {
           count: invoices.length,
           total_revenue: totalRevenue,
           data: invoices,
         },
+      }, {
+        onConflict: "metric_type,metric_key,metric_date"
       });
 
       // Fetch and store leads
@@ -79,7 +92,10 @@ export class DataSyncService {
       await supabaseAdmin.from("perfexcrm_metrics").upsert({
         metric_type: "leads",
         metric_key: "total",
+        metric_date: today,
         metric_value: { count: leads.length, data: leads },
+      }, {
+        onConflict: "metric_type,metric_key,metric_date"
       });
 
       // Store aggregated insights
@@ -125,14 +141,21 @@ export class DataSyncService {
     try {
       const client = new UchatClient(uchatConfig);
 
+      // Get current date in YYYY-MM-DD format for daily metrics storage
+      const today = new Date().toISOString().split('T')[0];
+
       // Fetch statistics
       const statistics = await client.getStatistics();
 
-      // Store in Supabase
+      // Store in Supabase with date to preserve daily values
+      // This allows tracking historical data per day instead of overwriting
       await supabaseAdmin.from("uchat_metrics").upsert({
         metric_type: "statistics",
         metric_key: "dashboard",
+        metric_date: today,
         metric_value: statistics,
+      }, {
+        onConflict: "metric_type,metric_key,metric_date"
       });
 
       // Fetch active chats
@@ -140,10 +163,13 @@ export class DataSyncService {
       await supabaseAdmin.from("uchat_metrics").upsert({
         metric_type: "chats",
         metric_key: "active",
+        metric_date: today,
         metric_value: {
           count: activeChats.length,
           data: activeChats,
         },
+      }, {
+        onConflict: "metric_type,metric_key,metric_date"
       });
 
       // Fetch all chats
@@ -151,10 +177,13 @@ export class DataSyncService {
       await supabaseAdmin.from("uchat_metrics").upsert({
         metric_type: "chats",
         metric_key: "total",
+        metric_date: today,
         metric_value: {
           count: allChats.length,
           data: allChats,
         },
+      }, {
+        onConflict: "metric_type,metric_key,metric_date"
       });
 
       // Analytics endpoint doesn't exist in Uchat API - skip it
