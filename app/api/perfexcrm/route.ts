@@ -55,16 +55,26 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("PerfexCRM API error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    
+    // Preserve the original status code if available
+    const statusCode = (error as Error & { statusCode?: number })?.statusCode || 500;
+    
     const errorDetails = {
       success: false,
       error: errorMessage,
       endpoint,
+      isCloudflareChallenge: (error as Error & { isCloudflareChallenge?: boolean })?.isCloudflareChallenge || false,
       config: {
         apiUrl: perfexcrmConfig.apiUrl ? "configured" : "missing",
         apiKey: perfexcrmConfig.apiKey ? "configured" : "missing",
       },
     };
-    return NextResponse.json(errorDetails, { status: 500 });
+    
+    // Use the original status code, but don't use 500 for client errors (4xx)
+    // Only use 500 for server errors (5xx) or unknown errors
+    const responseStatus = statusCode >= 400 && statusCode < 500 ? statusCode : 500;
+    
+    return NextResponse.json(errorDetails, { status: responseStatus });
   }
 }
 

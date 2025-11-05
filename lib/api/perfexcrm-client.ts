@@ -67,28 +67,48 @@ export class PerfexCRMClient {
         responseData: typeof responseData === 'string' ? responseData.substring(0, 500) : responseData,
       });
 
+      // Check if response is Cloudflare challenge
+      const contentType = error.response.headers['content-type'] || '';
+      const responseText = typeof responseData === 'string' ? responseData : JSON.stringify(responseData);
+      const isCloudflareChallenge = contentType.includes('text/html') || 
+                                   responseText.includes('Just a moment') || 
+                                   responseText.includes('cf-challenge');
+
       const message =
         (responseData as { message?: string })?.message ||
         (typeof responseData === 'string' ? responseData.substring(0, 200) : 'Unknown error') ||
         error.message;
 
+      // Create error with status code attached
+      const customError = new Error(`PerfexCRM: ${message || `Request failed with status ${status}`}`) as Error & { statusCode?: number; isCloudflareChallenge?: boolean };
+      customError.statusCode = status;
+      customError.isCloudflareChallenge = isCloudflareChallenge;
+
       if (status === 401) {
-        throw new Error("PerfexCRM: Authentication failed. Please check your API key.");
+        customError.message = "PerfexCRM: Authentication failed. Please check your API key.";
       } else if (status === 403) {
-        throw new Error(`PerfexCRM: Access forbidden (403). This usually means:\n1. API key is invalid or expired\n2. API key doesn't have required permissions\n3. IP restrictions are blocking the request\n4. Wrong authentication method\n\nURL: ${this.config.apiUrl}${requestUrl}\nResponse: ${message}`);
+        if (isCloudflareChallenge) {
+          customError.message = `PerfexCRM: Cloudflare protection is blocking the request. Please configure Cloudflare to allow API requests with X-API-KEY header.\n\nURL: ${this.config.apiUrl}${requestUrl}`;
+        } else {
+          customError.message = `PerfexCRM: Access forbidden (403). This usually means:\n1. API key is invalid or expired\n2. API key doesn't have required permissions\n3. IP restrictions are blocking the request\n4. Wrong authentication method\n\nURL: ${this.config.apiUrl}${requestUrl}\nResponse: ${message}`;
+        }
       } else if (status === 429) {
-        throw new Error("PerfexCRM: Rate limit exceeded. Please try again later.");
+        customError.message = "PerfexCRM: Rate limit exceeded. Please try again later.";
       } else if (status >= 500) {
-        throw new Error(`PerfexCRM: Server error (${status}). Please try again later.`);
-      } else {
-        throw new Error(`PerfexCRM: ${message || `Request failed with status ${status}`}`);
+        customError.message = `PerfexCRM: Server error (${status}). Please try again later.`;
       }
+
+      throw customError;
     } else if (error.request) {
       // Request made but no response received
-      throw new Error("PerfexCRM: No response from server. Please check your connection.");
+      const customError = new Error("PerfexCRM: No response from server. Please check your connection.") as Error & { statusCode?: number };
+      customError.statusCode = 503;
+      throw customError;
     } else {
       // Error setting up request
-      throw new Error(`PerfexCRM: ${error.message}`);
+      const customError = new Error(`PerfexCRM: ${error.message}`) as Error & { statusCode?: number };
+      customError.statusCode = 500;
+      throw customError;
     }
   }
 
