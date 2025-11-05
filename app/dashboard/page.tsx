@@ -228,7 +228,8 @@ export default function DashboardPage() {
   const uchat = data?.uchat || {};
   const errors = data?.errors;
 
-  // Try to get data from real-time insights if available
+  // Prioritize fresh API data over cached real-time insights
+  // Only use real-time insights if API data is not available
   const perfexcrmInsight = aggregatedInsights.find(
     (i) => i.source === "perfexcrm" && i.insight_type === "sales_summary"
   );
@@ -236,8 +237,14 @@ export default function DashboardPage() {
     (i) => i.source === "uchat" && i.insight_type === "chat_summary"
   );
 
-  const perfexcrmData = perfexcrmInsight?.insight_value as Record<string, unknown> || perfexcrm;
-  const uchatData = uchatInsight?.insight_value as Record<string, unknown> || uchat;
+  // Use API data if available (fresh), otherwise fall back to real-time insights
+  const perfexcrmData = Object.keys(perfexcrm || {}).length > 0 
+    ? perfexcrm 
+    : (perfexcrmInsight?.insight_value as Record<string, unknown> || {});
+  
+  const uchatData = Object.keys(uchat || {}).length > 0 
+    ? uchat 
+    : (uchatInsight?.insight_value as Record<string, unknown> || {});
 
   return (
     <div className="container mx-auto p-6">
