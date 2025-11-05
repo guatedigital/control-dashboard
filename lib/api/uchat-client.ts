@@ -24,7 +24,7 @@ export class UchatClient {
       baseURL: baseURL,
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${config.apiKey}`, // Uchat uses Bearer token authentication
+        "X-API-Key": config.apiKey, // Uchat uses API token authentication
       },
       timeout: 30000,
     });
@@ -52,8 +52,20 @@ export class UchatClient {
     if (error.response) {
       // Server responded with error status
       const status = error.response.status;
+      const responseData = error.response.data;
+      const requestUrl = error.config?.url || "unknown";
+      
+      // Log Uchat-specific error details
+      console.error("[Uchat Error Details]", {
+        status,
+        statusText: error.response.statusText,
+        url: `${this.config.apiUrl}${requestUrl}`,
+        responseData: typeof responseData === 'string' ? responseData.substring(0, 500) : responseData,
+      });
+
       const message =
-        (error.response.data as { message?: string })?.message ||
+        (responseData as { message?: string })?.message ||
+        (typeof responseData === 'string' ? responseData.substring(0, 200) : 'Unknown error') ||
         error.message;
 
       if (status === 401) {
@@ -232,23 +244,26 @@ export class UchatClient {
   async getStatistics(): Promise<Record<string, unknown>> {
     try {
       // Try to get flow summary which contains analytics
-      // Response structure: { data: [{ total_bot_users, day_active_bot_users, ... }], status: "ok" }
-      const flowSummaryResponse = await this.get<{ data?: any[]; status?: string }>("/flow-summary");
+      // The get() method extracts the 'data' property, so we get the array directly
+      // Response structure from API: { data: [{ total_bot_users, day_active_bot_users, ... }], status: "ok" }
+      // After get() extraction: [{ total_bot_users, day_active_bot_users, ... }]
+      const flowSummaryArray = await this.get<any[]>("/flow-summary");
       
       // Extract the first summary item from the data array
-      const flowSummary = Array.isArray(flowSummaryResponse.data) && flowSummaryResponse.data.length > 0
-        ? flowSummaryResponse.data[0]
-        : (flowSummaryResponse as any);
+      const flowSummary = Array.isArray(flowSummaryArray) && flowSummaryArray.length > 0
+        ? flowSummaryArray[0]
+        : (flowSummaryArray as any);
       
       console.log("[Uchat] Flow summary data:", flowSummary);
+      console.log("[Uchat] Flow summary array:", flowSummaryArray);
       
       // Also try flow-agent-summary for additional metrics
       let flowAgentSummary: Record<string, unknown> | null = null;
       try {
-        const agentSummaryResponse = await this.get<{ data?: any[] }>("/flow-agent-summary");
-        flowAgentSummary = Array.isArray(agentSummaryResponse.data) && agentSummaryResponse.data.length > 0
-          ? agentSummaryResponse.data[0]
-          : (agentSummaryResponse as any);
+        const agentSummaryArray = await this.get<any[]>("/flow-agent-summary");
+        flowAgentSummary = Array.isArray(agentSummaryArray) && agentSummaryArray.length > 0
+          ? agentSummaryArray[0]
+          : (agentSummaryArray as any);
       } catch (e) {
         // Ignore if not available
         console.log("[Uchat] Flow agent summary not available");
@@ -266,10 +281,16 @@ export class UchatClient {
 
       // Map the flow summary data to dashboard format
       // flow-summary provides: total_bot_users, day_active_bot_users, day_total_messages, avg_agent_response_time, avg_resolve_time
+      console.log("[Uchat] Mapping statistics:", {
+        total_bot_users: flowSummary?.total_bot_users,
+        day_active_bot_users: flowSummary?.day_active_bot_users,
+        avg_agent_response_time: flowSummary?.avg_agent_response_time,
+      });
+      
       return {
-        total_chats: flowSummary.total_bot_users || conversationsData.length || 0,
-        active_chats: flowSummary.day_active_bot_users || conversationsData.filter((c: any) => c.status === 'active').length || 0,
-        average_response_time: flowSummary.avg_agent_response_time || flowAgentSummary?.avg_agent_response_time || 0,
+        total_chats: flowSummary?.total_bot_users ?? flowSummary?.total_bot_users ?? (conversationsData.length > 0 ? conversationsData.length : 0),
+        active_chats: flowSummary?.day_active_bot_users ?? flowSummary?.day_active_bot_users ?? (conversationsData.length > 0 ? conversationsData.filter((c: any) => c.status === 'active').length : 0),
+        average_response_time: flowSummary?.avg_agent_response_time ?? flowAgentSummary?.avg_agent_response_time ?? 0,
         satisfaction_score: 0, // Not available in flow-summary, would need separate endpoint
       };
     } catch (error) {
