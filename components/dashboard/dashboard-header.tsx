@@ -29,14 +29,27 @@ export function DashboardHeader({
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await fetch("/api/sync", {
+      // Wait for sync to complete before refreshing
+      const syncResponse = await fetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source: "all" }),
       });
+      
+      if (syncResponse.ok) {
+        const syncResult = await syncResponse.json();
+        console.log("[Dashboard] Sync completed:", syncResult);
+        
+        // Wait a brief moment for database to update
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      // Now trigger the refresh
       onRefresh?.();
     } catch (error) {
       console.error("Refresh error:", error);
+      // Still trigger refresh even if sync fails
+      onRefresh?.();
     } finally {
       setIsRefreshing(false);
     }

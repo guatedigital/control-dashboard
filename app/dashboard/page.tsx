@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { Users, FileText, MessageSquare, DollarSign, TrendingUp, UserPlus, Mail, Clock, CheckCircle, ArrowDown, ArrowUp, Send, Eye } from "lucide-react";
@@ -146,6 +146,7 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const { aggregatedInsights } = useRealtimeData();
+  const queryClient = useQueryClient();
 
   // Fetch data from database by date
   const fetchDataByDate = async (date: string) => {
@@ -197,11 +198,19 @@ export default function DashboardPage() {
     queryFn: () => fetchDataByDate(selectedDate),
     refetchInterval: false, // Disable automatic polling - only fetch on mount and manual refresh
     retry: false, // Don't retry - show error immediately if it fails
-    staleTime: Infinity, // Consider data fresh indefinitely - won't auto-refetch
+    staleTime: 0, // Always consider data stale so refetch works properly
     gcTime: 300000, // Keep data in cache for 5 minutes (for performance)
     refetchOnMount: 'always', // Always refetch when component mounts (on login)
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
   });
+
+  // Force refresh function that invalidates cache and refetches
+  const forceRefresh = async () => {
+    // Invalidate the query cache to force a fresh fetch
+    await queryClient.invalidateQueries({ queryKey: ["dashboard-data", selectedDate] });
+    // Refetch the data
+    await refetch();
+  };
 
   // Log query state for debugging
   useEffect(() => {
@@ -216,8 +225,10 @@ export default function DashboardPage() {
 
   // Refetch when date changes
   useEffect(() => {
+    // Invalidate cache when date changes to ensure fresh data
+    queryClient.invalidateQueries({ queryKey: ["dashboard-data", selectedDate] });
     refetch();
-  }, [selectedDate, refetch]);
+  }, [selectedDate, refetch, queryClient]);
 
   // Update from real-time data when available
   useEffect(() => {
@@ -231,11 +242,12 @@ export default function DashboardPage() {
 
       if (perfexcrmInsight || uchatInsight) {
         setLastUpdated(new Date());
-        // Trigger a refetch to update the UI
+        // Invalidate cache and force a fresh fetch when realtime data updates
+        queryClient.invalidateQueries({ queryKey: ["dashboard-data", selectedDate] });
         refetch();
       }
     }
-  }, [aggregatedInsights, refetch]);
+  }, [aggregatedInsights, refetch, queryClient, selectedDate]);
 
   if (isLoading) {
     return (
@@ -302,7 +314,7 @@ export default function DashboardPage() {
   return (
     <div className="container mx-auto p-6">
       <DashboardHeader 
-        onRefresh={refetch} 
+        onRefresh={forceRefresh} 
         lastUpdated={lastUpdated}
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
