@@ -319,7 +319,8 @@ export class UchatClient {
             item.summary_date === today || item.summary_date === yesterday
           );
         } else if (flowSummaryArray && typeof flowSummaryArray === 'object') {
-          hasRecentData = flowSummaryArray.summary_date === today || flowSummaryArray.summary_date === yesterday;
+          const flowObj = flowSummaryArray as any;
+          hasRecentData = flowObj.summary_date === today || flowObj.summary_date === yesterday;
         }
         
         if (!hasRecentData) {
