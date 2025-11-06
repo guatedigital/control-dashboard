@@ -290,6 +290,10 @@ export class UchatClient {
       // If not provided, API will use its default (which is 'yesterday')
       const range = params?.range;
       
+      // Get today's and yesterday's dates for comparison
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      
       // Build query parameters
       const queryParams = new URLSearchParams();
       if (range) {
@@ -304,19 +308,69 @@ export class UchatClient {
       // The get() method extracts the 'data' property, so we get the array directly
       // Response structure from API: { data: [{ total_bot_users, day_active_bot_users, ... }], status: "ok" }
       // After get() extraction: [{ total_bot_users, day_active_bot_users, ... }]
-      const flowSummaryArray = await this.get<any[]>(`/flow-summary${queryString}`);
+      let flowSummaryArray = await this.get<any[]>(`/flow-summary${queryString}`);
       
-      // For ranges like 'last_7_days', the API returns an array of daily summaries
+      // If using 'last_7_days' and we don't find today's or yesterday's data, try 'yesterday' as fallback
+      // This is because 'last_7_days' might return aggregated or older data
+      if (range === 'last_7_days') {
+        let hasRecentData = false;
+        if (Array.isArray(flowSummaryArray)) {
+          hasRecentData = flowSummaryArray.some((item: any) => 
+            item.summary_date === today || item.summary_date === yesterday
+          );
+        } else if (flowSummaryArray && typeof flowSummaryArray === 'object') {
+          hasRecentData = flowSummaryArray.summary_date === today || flowSummaryArray.summary_date === yesterday;
+        }
+        
+        if (!hasRecentData) {
+          console.log("[Uchat] last_7_days doesn't contain today/yesterday data, trying 'yesterday' range");
+          const yesterdayParams = new URLSearchParams();
+          if (params?.flow_ns) {
+            yesterdayParams.append("flow_ns", params.flow_ns);
+          }
+          yesterdayParams.append("range", "yesterday");
+          const yesterdayQueryString = `?${yesterdayParams}`;
+          flowSummaryArray = await this.get<any[]>(`/flow-summary${yesterdayQueryString}`);
+          console.log("[Uchat] Using 'yesterday' range data instead");
+        }
+      }
+      
+      // For ranges like 'last_7_days', the API might return an array or a single object
       // We need to find today's data (most recent date) instead of just taking the first item
       let flowSummary: any;
+      
+      // Get today's date in YYYY-MM-DD format
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      
+      console.log("[Uchat] Looking for data for today:", today, "or yesterday:", yesterday);
+      console.log("[Uchat] Flow summary array type:", Array.isArray(flowSummaryArray) ? "array" : typeof flowSummaryArray);
+      console.log("[Uchat] Flow summary array length:", Array.isArray(flowSummaryArray) ? flowSummaryArray.length : 'N/A');
+      
       if (Array.isArray(flowSummaryArray) && flowSummaryArray.length > 0) {
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().split('T')[0];
+        // Log all dates in the array for debugging
+        const dates = flowSummaryArray.map((item: any, index: number) => ({
+          index,
+          summary_date: item.summary_date,
+          day_done: item.day_done,
+          avg_agent_response_time: item.avg_agent_response_time,
+        }));
+        console.log("[Uchat] All dates in array:", JSON.stringify(dates, null, 2));
         
         // Try to find today's data first
         flowSummary = flowSummaryArray.find((item: any) => item.summary_date === today);
         
-        // If today's data not found, find the most recent date (last item, as API typically returns sorted)
+        // If today's data not found, try yesterday
+        if (!flowSummary) {
+          flowSummary = flowSummaryArray.find((item: any) => item.summary_date === yesterday);
+          if (flowSummary) {
+            console.log("[Uchat] Using yesterday's data:", flowSummary.summary_date);
+          }
+        } else {
+          console.log("[Uchat] Using today's data:", flowSummary.summary_date);
+        }
+        
+        // If still not found, find the most recent date
         if (!flowSummary) {
           // Sort by summary_date descending to get most recent
           const sorted = [...flowSummaryArray].sort((a: any, b: any) => {
@@ -325,16 +379,25 @@ export class UchatClient {
             return dateB.localeCompare(dateA);
           });
           flowSummary = sorted[0];
-          console.log("[Uchat] Today's data not found, using most recent date:", flowSummary?.summary_date);
-        } else {
-          console.log("[Uchat] Using today's data:", flowSummary.summary_date);
+          console.log("[Uchat] Today/yesterday not found, using most recent date:", flowSummary?.summary_date);
         }
+      } else if (flowSummaryArray && typeof flowSummaryArray === 'object' && !Array.isArray(flowSummaryArray)) {
+        // Single object response (not an array)
+        flowSummary = flowSummaryArray;
+        console.log("[Uchat] Single object response, summary_date:", flowSummary.summary_date);
       } else {
         flowSummary = flowSummaryArray as any;
       }
       
-      console.log("[Uchat] Flow summary data:", flowSummary);
-      console.log("[Uchat] Flow summary array length:", Array.isArray(flowSummaryArray) ? flowSummaryArray.length : 'N/A');
+      console.log("[Uchat] Selected flow summary data:", {
+        summary_date: flowSummary?.summary_date,
+        day_done: flowSummary?.day_done,
+        day_assigned: flowSummary?.day_assigned,
+        avg_agent_response_time: flowSummary?.avg_agent_response_time,
+        avg_resolve_time: flowSummary?.avg_resolve_time,
+        day_new_bot_users: flowSummary?.day_new_bot_users,
+        day_total_messages: flowSummary?.day_total_messages,
+      });
       
       // Also try flow-agent-summary for additional metrics (with same range parameters)
       let flowAgentSummary: Record<string, unknown> | null = null;
