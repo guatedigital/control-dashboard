@@ -339,10 +339,6 @@ export class UchatClient {
       // We need to find today's data (most recent date) instead of just taking the first item
       let flowSummary: any;
       
-      // Get today's date in YYYY-MM-DD format
-      const today = new Date().toISOString().split('T')[0];
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      
       console.log("[Uchat] Looking for data for today:", today, "or yesterday:", yesterday);
       console.log("[Uchat] Flow summary array type:", Array.isArray(flowSummaryArray) ? "array" : typeof flowSummaryArray);
       console.log("[Uchat] Flow summary array length:", Array.isArray(flowSummaryArray) ? flowSummaryArray.length : 'N/A');
